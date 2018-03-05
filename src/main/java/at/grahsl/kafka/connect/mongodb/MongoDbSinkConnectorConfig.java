@@ -35,10 +35,13 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.config.ConfigValue;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class MongoDbSinkConnectorConfig extends AbstractConfig {
 
@@ -126,7 +129,52 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
     }
 
     public static ConfigDef conf() {
-        return new ConfigDef()
+        return new ConfigDef() {
+
+            <T> Validation<T> ensureValid(String name, Consumer<T> consumer) {
+                return new Validation<T>(name, consumer);
+            }
+
+            class Validation<T> {
+
+                private final String name;
+                private final Consumer<T> consumer;
+
+                Validation(String name, Consumer<T> consumer) {
+                    this.name = name;
+                    this.consumer = consumer;
+                }
+
+                Validation<T> unless(boolean condition) {
+                    return condition ? new Validation<T>(name, (T t) -> {}) : this;
+                }
+            }
+
+            @Override
+            public Map<String, ConfigValue> validateAll(Map<String, String> props) {
+                Map<String, ConfigValue> result = super.validateAll(props);
+                MongoDbSinkConnectorConfig config = new MongoDbSinkConnectorConfig(props);
+                Stream.of(
+                    ensureValid(MONGODB_CONNECTION_URI_CONF, MongoDbSinkConnectorConfig::buildClientURI),
+                    ensureValid(MONGODB_KEY_PROJECTION_TYPE_CONF, MongoDbSinkConnectorConfig::getKeyProjectionList),
+                    ensureValid(MONGODB_VALUE_PROJECTION_TYPE_CONF, MongoDbSinkConnectorConfig::getValueProjectionList),
+                    ensureValid(MONGODB_FIELD_RENAMER_MAPPING, MongoDbSinkConnectorConfig::parseRenameFieldnameMappings),
+                    ensureValid(MONGODB_FIELD_RENAMER_REGEXP, MongoDbSinkConnectorConfig::parseRenameRegExpSettings),
+                    ensureValid(MONGODB_POST_PROCESSOR_CHAIN, MongoDbSinkConnectorConfig::buildPostProcessorChain),
+                    ensureValid(MONGODB_CHANGE_DATA_CAPTURE_HANDLER, MongoDbSinkConnectorConfig::getCdcHandler)
+                        .unless(config.getString(MONGODB_CHANGE_DATA_CAPTURE_HANDLER).isEmpty()),
+                    ensureValid(MONGODB_DOCUMENT_ID_STRATEGIES_CONF, MongoDbSinkConnectorConfig::getIdStrategy),
+                    ensureValid(MONGODB_KEY_PROJECTION_TYPE_CONF, MongoDbSinkConnectorConfig::getKeyProjector)
+                ).forEach(validation -> {
+                    try {
+                        validation.consumer.accept(config);
+                    } catch (Exception ex) {
+                        result.get(validation.name).addErrorMessage(ex.getMessage());
+                    }
+                });
+                return result;
+            }
+        }
                 .define(MONGODB_CONNECTION_URI_CONF, Type.STRING, MONGODB_CONNECTION_URI_DEFAULT, Importance.HIGH, MONGODB_CONNECTION_URI_DOC)
                 .define(MONGODB_COLLECTION_CONF, Type.STRING, MONGODB_COLLECTION_DEFAULT, Importance.HIGH, MONGODB_COLLECTION_DOC)
                 .define(MONGODB_MAX_NUM_RETRIES_CONF, Type.INT, MONGODB_MAX_NUM_RETRIES_DEFAULT, ConfigDef.Range.atLeast(0), Importance.MEDIUM, MONGODB_MAX_NUM_RETRIES_DOC)
