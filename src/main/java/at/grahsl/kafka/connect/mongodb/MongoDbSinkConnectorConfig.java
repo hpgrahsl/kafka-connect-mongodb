@@ -163,8 +163,7 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
                     ensureValid(MONGODB_POST_PROCESSOR_CHAIN, MongoDbSinkConnectorConfig::buildPostProcessorChain),
                     ensureValid(MONGODB_CHANGE_DATA_CAPTURE_HANDLER, MongoDbSinkConnectorConfig::getCdcHandler)
                         .unless(config.getString(MONGODB_CHANGE_DATA_CAPTURE_HANDLER).isEmpty()),
-                    ensureValid(MONGODB_DOCUMENT_ID_STRATEGIES_CONF, MongoDbSinkConnectorConfig::getIdStrategy),
-                    ensureValid(MONGODB_KEY_PROJECTION_TYPE_CONF, MongoDbSinkConnectorConfig::getKeyProjector)
+                    ensureValid(MONGODB_DOCUMENT_ID_STRATEGIES_CONF, MongoDbSinkConnectorConfig::getIdStrategy)
                 ).forEach(validation -> {
                     try {
                         validation.consumer.accept(config);
