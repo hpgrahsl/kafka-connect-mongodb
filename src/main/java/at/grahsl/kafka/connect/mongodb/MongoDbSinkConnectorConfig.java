@@ -131,8 +131,8 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
     public static ConfigDef conf() {
         return new ConfigDef() {
 
-            <T> Validation<T> ensureValid(String name, Consumer<T> consumer) {
-                return new Validation<T>(name, consumer);
+            private <T> Validation<T> ensureValid(String name, Consumer<T> consumer) {
+                return new Validation<>(name, consumer);
             }
 
             class Validation<T> {
@@ -145,7 +145,7 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
                     this.consumer = consumer;
                 }
 
-                Validation<T> unless(boolean condition) {
+                private Validation<T> unless(boolean condition) {
                     return condition ? new Validation<T>(name, (T t) -> {}) : this;
                 }
             }
