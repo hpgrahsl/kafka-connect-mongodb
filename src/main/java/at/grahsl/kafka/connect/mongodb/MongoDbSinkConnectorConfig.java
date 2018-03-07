@@ -38,6 +38,7 @@ import org.apache.kafka.common.config.ConfigValue;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -48,6 +49,10 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
         BLACKLIST,
         WHITELIST
     }
+
+    private static final Pattern CLASS_NAME = Pattern.compile("\\p{javaUnicodeIdentifierStart}\\p{javaUnicodeIdentifierPart}*");
+    private static final Pattern FULLY_QUALIFIED_CLASS_NAME = Pattern.compile("(" + CLASS_NAME + "\\.)*" + CLASS_NAME);
+    private static final Pattern FULLY_QUALIFIED_CLASS_NAME_LIST = Pattern.compile("(" + FULLY_QUALIFIED_CLASS_NAME + ",)*" + FULLY_QUALIFIED_CLASS_NAME);
 
     public static final String FIELD_LIST_SPLIT_CHAR = ",";
 
@@ -174,14 +179,14 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
                 .define(MONGODB_RETRIES_DEFER_TIMEOUT_CONF, Type.INT, MONGODB_RETRIES_DEFER_TIMEOUT_DEFAULT, ConfigDef.Range.atLeast(0), Importance.MEDIUM, MONGODB_RETRIES_DEFER_TIME_OUT_DOC)
                 .define(MONGODB_VALUE_PROJECTION_TYPE_CONF, Type.STRING, MONGODB_VALUE_PROJECTION_TYPE_DEFAULT, EnumValidator.in(FieldProjectionTypes.values()), Importance.LOW, MONGODB_VALUE_PROJECTION_TYPE_DOC)
                 .define(MONGODB_VALUE_PROJECTION_LIST_CONF, Type.STRING, MONGODB_VALUE_PROJECTION_LIST_DEFAULT, Importance.LOW, MONGODB_VALUE_PROJECTION_LIST_DOC)
-                .define(MONGODB_DOCUMENT_ID_STRATEGY_CONF, Type.STRING, MONGODB_DOCUMENT_ID_STRATEGY_DEFAULT, Importance.HIGH, MONGODB_DOCUMENT_ID_STRATEGY_CONF_DOC)
-                .define(MONGODB_DOCUMENT_ID_STRATEGIES_CONF, Type.STRING, MONGODB_DOCUMENT_ID_STRATEGIES_DEFAULT, Importance.LOW, MONGODB_DOCUMENT_ID_STRATEGIES_CONF_DOC)
+                .define(MONGODB_DOCUMENT_ID_STRATEGY_CONF, Type.STRING, MONGODB_DOCUMENT_ID_STRATEGY_DEFAULT, emptyString().or(matching(FULLY_QUALIFIED_CLASS_NAME)), Importance.HIGH, MONGODB_DOCUMENT_ID_STRATEGY_CONF_DOC)
+                .define(MONGODB_DOCUMENT_ID_STRATEGIES_CONF, Type.STRING, MONGODB_DOCUMENT_ID_STRATEGIES_DEFAULT, emptyString().or(matching(FULLY_QUALIFIED_CLASS_NAME_LIST)), Importance.LOW, MONGODB_DOCUMENT_ID_STRATEGIES_CONF_DOC)
                 .define(MONGODB_KEY_PROJECTION_TYPE_CONF, Type.STRING, MONGODB_KEY_PROJECTION_TYPE_DEFAULT, EnumValidator.in(FieldProjectionTypes.values()), Importance.LOW, MONGODB_KEY_PROJECTION_TYPE_DOC)
                 .define(MONGODB_KEY_PROJECTION_LIST_CONF, Type.STRING, MONGODB_KEY_PROJECTION_LIST_DEFAULT, Importance.LOW, MONGODB_KEY_PROJECTION_LIST_DOC)
                 .define(MONGODB_FIELD_RENAMER_MAPPING, Type.STRING, MONGODB_FIELD_RENAMER_MAPPING_DEFAULT, Importance.LOW, MONGODB_FIELD_RENAMER_MAPPING_DOC)
                 .define(MONGODB_FIELD_RENAMER_REGEXP, Type.STRING, MONGODB_FIELD_RENAMER_REGEXP_DEFAULT, Importance.LOW, MONGODB_FIELD_RENAMER_REGEXP_DOC)
-                .define(MONGODB_POST_PROCESSOR_CHAIN, Type.STRING, MONGODB_POST_PROCESSOR_CHAIN_DEFAULT, Importance.LOW, MONGODB_POST_PROCESSOR_CHAIN_DOC)
-                .define(MONGODB_CHANGE_DATA_CAPTURE_HANDLER, Type.STRING, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DEFAULT, Importance.LOW, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DOC)
+                .define(MONGODB_POST_PROCESSOR_CHAIN, Type.STRING, MONGODB_POST_PROCESSOR_CHAIN_DEFAULT, emptyString().or(matching(FULLY_QUALIFIED_CLASS_NAME_LIST)), Importance.LOW, MONGODB_POST_PROCESSOR_CHAIN_DOC)
+                .define(MONGODB_CHANGE_DATA_CAPTURE_HANDLER, Type.STRING, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DEFAULT, emptyString().or(matching(FULLY_QUALIFIED_CLASS_NAME)), Importance.LOW, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DOC)
                 .define(MONGODB_DELETE_ON_NULL_VALUES, Type.BOOLEAN, MONGODB_DELETE_ON_NULL_VALUES_DEFAULT, Importance.MEDIUM, MONGODB_DELETE_ON_NULL_VALUES_DOC)
                 ;
     }
@@ -508,6 +513,44 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
         public String toString() {
             return canonicalValues.toString();
         }
+    }
+
+    private interface ValidatorWithOperators extends ConfigDef.Validator {
+
+        default ValidatorWithOperators or(ConfigDef.Validator other) {
+            return (name, value) -> {
+                try {
+                    this.ensureValid(name, value);
+                } catch (ConfigException e) {
+                    other.ensureValid(name, value);
+                }
+            };
+        }
+
+        default ValidatorWithOperators and(ConfigDef.Validator other) {
+            return  (name, value) -> {
+                this.ensureValid(name, value);
+                other.ensureValid(name, value);
+            };
+        }
+    }
+
+    private static ValidatorWithOperators emptyString() {
+        return (name, value) -> {
+            // value type already validated when parsed as String, hence ignoring ClassCastException
+            if (!((String) value).isEmpty()) {
+                throw new ConfigException(name, value, "Not empty");
+            }
+        };
+    }
+
+    private static ValidatorWithOperators matching(Pattern pattern) {
+        return (name, value) -> {
+            // type already validated when parsing config, hence ignoring ClassCastException
+            if (!pattern.matcher((String) value).matches()) {
+                throw new ConfigException(name, value, "Does not match: " + pattern);
+            }
+        };
     }
 
 }
