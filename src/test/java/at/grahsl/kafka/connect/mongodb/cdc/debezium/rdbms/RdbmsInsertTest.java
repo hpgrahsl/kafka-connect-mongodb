@@ -1,4 +1,4 @@
-package at.grahsl.kafka.connect.mongodb.cdc.debezium.mysql;
+package at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms;
 
 import at.grahsl.kafka.connect.mongodb.converter.SinkDocument;
 import com.mongodb.DBCollection;
@@ -14,9 +14,9 @@ import org.junit.runner.RunWith;
 import static org.junit.jupiter.api.Assertions.*;
 
 @RunWith(JUnitPlatform.class)
-public class MysqlInsertTest {
+public class RdbmsInsertTest {
 
-    public static final MysqlInsert MYSQL_INSERT = new MysqlInsert();
+    public static final RdbmsInsert RDBMS_INSERT = new RdbmsInsert();
 
     @Test
     @DisplayName("when valid cdc event with single field PK then correct ReplaceOneModel")
@@ -42,7 +42,7 @@ public class MysqlInsertTest {
                         .append("email",new BsonString("annek@noanswer.org")));
 
         WriteModel<BsonDocument> result =
-                MYSQL_INSERT.perform(new SinkDocument(keyDoc,valueDoc));
+                RDBMS_INSERT.perform(new SinkDocument(keyDoc,valueDoc));
 
         assertTrue(result instanceof ReplaceOneModel,
                 () -> "result expected to be of type ReplaceOneModel");
@@ -89,7 +89,7 @@ public class MysqlInsertTest {
                                     .append("active", new BsonBoolean(true)));
 
         WriteModel<BsonDocument> result =
-                MYSQL_INSERT.perform(new SinkDocument(keyDoc,valueDoc));
+                RDBMS_INSERT.perform(new SinkDocument(keyDoc,valueDoc));
 
         assertTrue(result instanceof ReplaceOneModel,
                 () -> "result expected to be of type ReplaceOneModel");
@@ -114,6 +114,24 @@ public class MysqlInsertTest {
     @DisplayName("when valid cdc event without PK then correct ReplaceOneModel")
     public void testValidSinkDocumentNoPK() {
 
+        BsonDocument valueDocCreate = new BsonDocument("op",new BsonString("c"))
+                .append("after",new BsonDocument("text", new BsonString("lalala"))
+                        .append("number", new BsonInt32(1234))
+                        .append("active", new BsonBoolean(false)));
+
+        verifyResultsNoPK(valueDocCreate);
+
+        BsonDocument valueDocRead = new BsonDocument("op",new BsonString("r"))
+                .append("after",new BsonDocument("text", new BsonString("lalala"))
+                        .append("number", new BsonInt32(1234))
+                        .append("active", new BsonBoolean(false)));
+
+        verifyResultsNoPK(valueDocRead);
+
+    }
+
+    private void verifyResultsNoPK(BsonDocument valueDoc) {
+
         //NOTE: for both filterDoc and replacementDoc _id is a generated ObjectId
         //which cannot be set from outside for testing thus it is set
         //by taking it from the resulting writeModel in order to do an equals comparison
@@ -122,19 +140,14 @@ public class MysqlInsertTest {
         BsonDocument filterDoc = new BsonDocument();
 
         BsonDocument replacementDoc =
-                        new BsonDocument("text", new BsonString("lalala"))
+                new BsonDocument("text", new BsonString("lalala"))
                         .append("number", new BsonInt32(1234))
                         .append("active", new BsonBoolean(false));
 
         BsonDocument keyDoc = new BsonDocument();
 
-        BsonDocument valueDoc = new BsonDocument("op",new BsonString("c"))
-                .append("after",new BsonDocument("text", new BsonString("lalala"))
-                        .append("number", new BsonInt32(1234))
-                        .append("active", new BsonBoolean(false)));
-
         WriteModel<BsonDocument> result =
-                MYSQL_INSERT.perform(new SinkDocument(keyDoc,valueDoc));
+                RDBMS_INSERT.perform(new SinkDocument(keyDoc,valueDoc));
 
         assertTrue(result instanceof ReplaceOneModel,
                 () -> "result expected to be of type ReplaceOneModel");
@@ -164,14 +177,13 @@ public class MysqlInsertTest {
 
         assertTrue(writeModel.getOptions().isUpsert(),
                 () -> "replacement expected to be done in upsert mode");
-
     }
 
     @Test
     @DisplayName("when missing key doc then DataException")
     public void testMissingKeyDocument() {
         assertThrows(DataException.class,() ->
-                MYSQL_INSERT.perform(new SinkDocument(null, new BsonDocument()))
+                RDBMS_INSERT.perform(new SinkDocument(null, new BsonDocument()))
         );
     }
 
@@ -179,7 +191,7 @@ public class MysqlInsertTest {
     @DisplayName("when missing value doc then DataException")
     public void testMissingValueDocument() {
         assertThrows(DataException.class,() ->
-            MYSQL_INSERT.perform(new SinkDocument(new BsonDocument(),null))
+            RDBMS_INSERT.perform(new SinkDocument(new BsonDocument(),null))
         );
     }
 
@@ -187,7 +199,7 @@ public class MysqlInsertTest {
     @DisplayName("when invalid json in value doc 'after' field then DataException")
     public void testInvalidAfterField() {
         assertThrows(DataException.class,() ->
-                MYSQL_INSERT.perform(
+                RDBMS_INSERT.perform(
                         new SinkDocument(new BsonDocument(),
                             new BsonDocument("op",new BsonString("c"))
                                 .append("after",new BsonString("{NO : JSON [HERE] GO : AWAY}")))
