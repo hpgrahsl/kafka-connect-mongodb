@@ -355,6 +355,74 @@ These settings cause:
 
 Note the use of the **"." character** as navigational operator in both examples. It's used in order to refer to nested fields in sub documents of the record structure. The prefix at the very beginning is used as a simple convention to distinguish between the _key_ and _value_ structure of a document.
 
+### Custom Write Model Filters
+The default behaviour for the connector whenever documents are written to MongoDB collections is to make use of a proper [ReplaceOneModel](http://mongodb.github.io/mongo-java-driver/3.6/javadoc/com/mongodb/client/model/ReplaceOneModel.html) with [upsert mode](http://mongodb.github.io/mongo-java-driver/3.6/javadoc/com/mongodb/client/model/UpdateOptions.html) and **create the filter documents based on the _id field** as it is given in the value structure of the sink record.
+However, there are other use cases which need a different approach and the **customization option for generating filter documents** can support these.
+A new configuration option (_mongodb.replace.one.strategy_) allows for such customizations. Currently, the following two strategies are implemented:
+
+* **default behaviour** at.grahsl.kafka.connect.mongodb.writemodel.filter.strategy.**ReplaceOneDefaultFilterStrategy**
+* **business key** (see description of use case below) at.grahsl.kafka.connect.mongodb.writemodel.filter.strategy.**ReplaceOneBusinessKeyFilterStrategy**
+
+##### Use Case: Employing Business Keys
+Let's say you want to re-use a unique business key found in your sink records while at the same time have _BSON ObjectIds_ created for the resulting MongoDB documents.
+To achieve this a few simple configuration steps are necessary:
+
+1) make sure to **create a unique key constraint** for the business key of your target MongoDB collection
+2) use the **PartialValueStrategy** as the DocumentIdAdder's strategy in order to let the connector know which fields belong to the business key
+3) use the **ReplaceOneBusinessKeyFilterStrategy** instead of the default behaviour
+
+These configuration settings then allow to have **filter documents based on the original business key but still have _BSON ObjectIds_ created for the _id field** during the first upsert into your target MongoDB target collection.
+Find below how such a setup might look like:
+ 
+Given the following fictional Kafka record
+
+```json
+{ 
+  "fieldA": "Anonymous", 
+  "fieldB": 42,
+  "active": true, 
+  "values": [12.34, 23.45, 34.56, 45.67]
+}
+```
+
+together with the sink connector config below 
+
+```json
+{
+  "name": "mdb-sink",
+  "config": {
+    "key.converter":"org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": false,
+    "value.converter":"org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": false,
+    "connector.class": "at.grahsl.kafka.connect.mongodb.MongoDbSinkConnector",
+    "topics": "mytopic",
+    "mongodb.connection.uri": "mongodb://mongodb:27017/kafkaconnect?w=1&journal=true",
+    "mongodb.document.id.strategy": "at.grahsl.kafka.connect.mongodb.processor.id.strategy.PartialValueStrategy",
+    "mongodb.key.projection.list": "fieldA,fieldB",
+    "mongodb.key.projection.type": "whitelist",
+    "mongodb.collection": "mycollection",
+    "mongodb.replace.one.strategy":"at.grahsl.kafka.connect.mongodb.writemodel.filter.strategy.ReplaceOneBusinessKeyFilterStrategy"
+  }
+}
+```
+
+will eventually result in MongoDB documents looking like:
+
+```json
+{ 
+  "_id": ObjectId("5abf52cc97e51aae0679d237"),
+  "fieldA": "Anonymous", 
+  "fieldB": 42,
+  "active": true, 
+  "values": [12.34, 23.45, 34.56, 45.67]
+}
+```
+
+All upsert operations are done based on the unique business key which for this example is a compound one that consists of the two fields _(fieldA,fieldB)_. 
+
+NOTE: Future versions will allow to make use of arbitrary, individual strategies that can be registered and as used for the _mongodb.replace.one.strategy_ configuration setting.
+
 ### Change Data Capture Mode
 The sink connector can also be used in a different operation mode in order to handle change data capture (CDC) events. Currently, the following CDC events from [Debezium](http://debezium.io/) can be processed:
 
