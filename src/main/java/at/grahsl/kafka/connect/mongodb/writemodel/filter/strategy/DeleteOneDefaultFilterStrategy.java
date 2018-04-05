@@ -12,7 +12,7 @@ public class DeleteOneDefaultFilterStrategy implements WriteModelFilterStrategy 
     @Override
     public WriteModel<BsonDocument> createWriteModel(SinkDocument document) {
 
-        BsonDocument kd = document.getValueDoc().orElseThrow(
+        BsonDocument kd = document.getKeyDoc().orElseThrow(
                 () -> new DataException("error: cannot build the WriteModel since"
                         + " the key document was missing unexpectedly")
         );
