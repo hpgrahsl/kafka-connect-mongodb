@@ -62,6 +62,7 @@
         <confluent.serializer.version>4.0.0</confluent.serializer.version>
         <confluent.connect.plugin.version>0.10.0</confluent.connect.plugin.version>
         <ok.http.version>3.9.1</ok.http.version>
+        <yaml.beans.version>1.13</yaml.beans.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -86,6 +87,7 @@
             <groupId>com.github.jcustenborder.kafka.connect</groupId>
             <artifactId>connect-utils</artifactId>
             <version>[0.2.31,0.2.1000)</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -182,7 +184,8 @@
         <dependency>
             <groupId>com.esotericsoftware.yamlbeans</groupId>
             <artifactId>yamlbeans</artifactId>
-            <version>1.12</version>
+            <version>${yaml.beans.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -219,6 +222,7 @@
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
+                    <outputDirectory>${basedir}/target/kafka-connect-mongodb/</outputDirectory>
                 </configuration>
                 <executions>
                     <execution>
