@@ -50,7 +50,7 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
         WHITELIST
     }
 
-    private static final Pattern CLASS_NAME = Pattern.compile("\\p{javaUnicodeIdentifierStart}\\p{javaUnicodeIdentifierPart}*");
+    private static final Pattern CLASS_NAME = Pattern.compile("\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*");
     private static final Pattern FULLY_QUALIFIED_CLASS_NAME = Pattern.compile("(" + CLASS_NAME + "\\.)*" + CLASS_NAME);
     private static final Pattern FULLY_QUALIFIED_CLASS_NAME_LIST = Pattern.compile("(" + FULLY_QUALIFIED_CLASS_NAME + ",)*" + FULLY_QUALIFIED_CLASS_NAME);
 
