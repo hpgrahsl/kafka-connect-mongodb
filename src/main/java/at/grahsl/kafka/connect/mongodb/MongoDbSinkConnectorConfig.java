@@ -130,22 +130,26 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
     public static ConfigDef conf() {
         return new ConfigDef() {
 
-            private <T> Validation<T> ensureValid(String name, Consumer<T> consumer) {
-                return new Validation<>(name, consumer);
+            private <T> Validator<T> ensureValid(String name, Consumer<T> consumer) {
+                return new Validator<>(name, consumer);
             }
 
-            class Validation<T> {
+            class Validator<T> {
 
                 private final String name;
                 private final Consumer<T> consumer;
 
-                Validation(String name, Consumer<T> consumer) {
+                Validator(String name, Consumer<T> consumer) {
                     this.name = name;
                     this.consumer = consumer;
                 }
 
-                private Validation<T> unless(boolean condition) {
-                    return condition ? new Validation<T>(name, (T t) -> {}) : this;
+                private Validator<T> unless(boolean condition) {
+                    return condition ? new Validator<T>(name, (T t) -> {}) : this;
+                }
+
+                private void accept(T obj) {
+                    this.consumer.accept(obj);
                 }
             }
 
@@ -163,11 +167,11 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
                     ensureValid(MONGODB_CHANGE_DATA_CAPTURE_HANDLER, MongoDbSinkConnectorConfig::getCdcHandler)
                         .unless(config.getString(MONGODB_CHANGE_DATA_CAPTURE_HANDLER).isEmpty()),
                     ensureValid(MONGODB_DOCUMENT_ID_STRATEGIES_CONF, MongoDbSinkConnectorConfig::getIdStrategy)
-                ).forEach(validation -> {
+                ).forEach(validator -> {
                     try {
-                        validation.consumer.accept(config);
+                        validator.accept(config);
                     } catch (Exception ex) {
-                        result.get(validation.name).addErrorMessage(ex.getMessage());
+                        result.get(validator.name).addErrorMessage(ex.getMessage());
                     }
                 });
                 return result;
