@@ -515,7 +515,7 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
         }
     }
 
-    private interface ValidatorWithOperators extends ConfigDef.Validator {
+    interface ValidatorWithOperators extends ConfigDef.Validator {
 
         default ValidatorWithOperators or(ConfigDef.Validator other) {
             return (name, value) -> {
@@ -535,7 +535,7 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
         }
     }
 
-    private static ValidatorWithOperators emptyString() {
+    static ValidatorWithOperators emptyString() {
         return (name, value) -> {
             // value type already validated when parsed as String, hence ignoring ClassCastException
             if (!((String) value).isEmpty()) {
@@ -544,7 +544,7 @@ public class MongoDbSinkConnectorConfig extends AbstractConfig {
         };
     }
 
-    private static ValidatorWithOperators matching(Pattern pattern) {
+    static ValidatorWithOperators matching(Pattern pattern) {
         return (name, value) -> {
             // type already validated when parsing config, hence ignoring ClassCastException
             if (!pattern.matcher((String) value).matches()) {
