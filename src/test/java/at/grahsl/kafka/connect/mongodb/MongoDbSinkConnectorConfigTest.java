@@ -38,6 +38,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static at.grahsl.kafka.connect.mongodb.MongoDbSinkConnectorConfig.MONGODB_CHANGE_DATA_CAPTURE_HANDLER;
 import static at.grahsl.kafka.connect.mongodb.MongoDbSinkConnectorConfig.MONGODB_DOCUMENT_ID_STRATEGIES_CONF;
 import static at.grahsl.kafka.connect.mongodb.MongoDbSinkConnectorConfig.MONGODB_DOCUMENT_ID_STRATEGY_CONF;
 import static at.grahsl.kafka.connect.mongodb.MongoDbSinkConnectorConfig.MONGODB_POST_PROCESSOR_CHAIN;
@@ -289,6 +290,28 @@ public class MongoDbSinkConnectorConfigTest {
                                       Map<String, String> m = Collections.singletonMap(MONGODB_POST_PROCESSOR_CHAIN, v);
                                                MongoDbSinkConnectorConfig.conf().validateAll(m);
                                   }))))
+            .collect(Collectors.toList());
+    }
+
+    @TestFactory
+    @DisplayName("test semantically valid change data capture handlers")
+    public Collection<DynamicTest> validChangeDataCaptureHandlers() {
+        return validClassNames()
+            .map(s -> Collections.singletonMap(MONGODB_CHANGE_DATA_CAPTURE_HANDLER, s))
+            .map(m -> dynamicTest("valid change data capture handlers: " + m.get(MONGODB_CHANGE_DATA_CAPTURE_HANDLER),
+                                  () -> MongoDbSinkConnectorConfig.conf().validateAll(m)))
+            .collect(Collectors.toList());
+    }
+
+    @TestFactory
+    @DisplayName("test semantically invalid change data capture handlers")
+    public Collection<DynamicTest> invalidChangeDataCaptureHandlers() {
+        return inValidClassNames()
+            .map(s -> Collections.singletonMap(MONGODB_CHANGE_DATA_CAPTURE_HANDLER, s))
+            .map(m -> dynamicTest("invalid change data capture handlers: " + m.get(MONGODB_CHANGE_DATA_CAPTURE_HANDLER),
+                                  () -> assertThrows(ConfigException.class, () -> {
+                                      MongoDbSinkConnectorConfig.conf().validateAll(m);
+                                  })))
             .collect(Collectors.toList());
     }
 
