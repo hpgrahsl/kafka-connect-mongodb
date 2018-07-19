@@ -1,4 +1,4 @@
-package at.grahsl.kafka.connect.mongodb.writemodel.filter.strategy;
+package at.grahsl.kafka.connect.mongodb.writemodel.strategy;
 
 import at.grahsl.kafka.connect.mongodb.converter.SinkDocument;
 import com.mongodb.DBCollection;
@@ -17,14 +17,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class WriteModelFilterStrategyTest {
 
-    public static final DeleteOneDefaultFilterStrategy DELETE_ONE_DEFAULT_FILTER_STRATEGY =
-            new DeleteOneDefaultFilterStrategy();
+    public static final DeleteOneDefaultStrategy DELETE_ONE_DEFAULT_STRATEGY =
+            new DeleteOneDefaultStrategy();
 
-    public static final ReplaceOneDefaultFilterStrategy REPLACE_ONE_DEFAULT_FILTER_STRATEGY =
-            new ReplaceOneDefaultFilterStrategy();
+    public static final ReplaceOneDefaultStrategy REPLACE_ONE_DEFAULT_STRATEGY =
+            new ReplaceOneDefaultStrategy();
 
-    public static final ReplaceOneBusinessKeyFilterStrategy REPLACE_ONE_BUSINESS_KEY_FILTER_STRATEGY =
-            new ReplaceOneBusinessKeyFilterStrategy();
+    public static final ReplaceOneBusinessKeyStrategy REPLACE_ONE_BUSINESS_KEY_STRATEGY =
+            new ReplaceOneBusinessKeyStrategy();
 
     public static final BsonDocument FILTER_DOC_DELETE_DEFAULT = new BsonDocument(DBCollection.ID_FIELD_NAME,
             new BsonDocument("id",new BsonInt32(1004)));
@@ -50,11 +50,11 @@ public class WriteModelFilterStrategyTest {
                     .append("active", new BsonBoolean(true));
 
     @Test
-    @DisplayName("when key document is missing for DeleteOneDefaultFilterStrategy then DataException")
-    public void testDeleteOneDefaultFilterStrategyWithMissingKeyDocument() {
+    @DisplayName("when key document is missing for DeleteOneDefaultStrategy then DataException")
+    public void testDeleteOneDefaultStrategyWithMissingKeyDocument() {
 
         assertThrows(DataException.class,() ->
-                DELETE_ONE_DEFAULT_FILTER_STRATEGY.createWriteModel(
+                DELETE_ONE_DEFAULT_STRATEGY.createWriteModel(
                         new SinkDocument(null, new BsonDocument())
                 )
         );
@@ -62,13 +62,13 @@ public class WriteModelFilterStrategyTest {
     }
 
     @Test
-    @DisplayName("when sink document is valid for DeleteOneDefaultFilterStrategy then correct DeleteOneModel")
-    public void testDeleteOneDefaultFilterStrategyWitValidSinkDocument() {
+    @DisplayName("when sink document is valid for DeleteOneDefaultStrategy then correct DeleteOneModel")
+    public void testDeleteOneDefaultStrategyWitValidSinkDocument() {
 
         BsonDocument keyDoc = new BsonDocument("id",new BsonInt32(1004));
 
         WriteModel<BsonDocument> result =
-                DELETE_ONE_DEFAULT_FILTER_STRATEGY.createWriteModel(new SinkDocument(keyDoc,null));
+                DELETE_ONE_DEFAULT_STRATEGY.createWriteModel(new SinkDocument(keyDoc,null));
 
         assertTrue(result instanceof DeleteOneModel,
                 () -> "result expected to be of type DeleteOneModel");
@@ -84,11 +84,11 @@ public class WriteModelFilterStrategyTest {
     }
 
     @Test
-    @DisplayName("when value document is missing for ReplaceOneDefaultFilterStrategy then DataException")
-    public void testReplaceOneDefaultFilterStrategyWithMissingValueDocument() {
+    @DisplayName("when value document is missing for ReplaceOneDefaultStrategy then DataException")
+    public void testReplaceOneDefaultStrategyWithMissingValueDocument() {
 
         assertThrows(DataException.class,() ->
-                REPLACE_ONE_DEFAULT_FILTER_STRATEGY.createWriteModel(
+                REPLACE_ONE_DEFAULT_STRATEGY.createWriteModel(
                         new SinkDocument(new BsonDocument(), null)
                 )
         );
@@ -96,8 +96,8 @@ public class WriteModelFilterStrategyTest {
     }
 
     @Test
-    @DisplayName("when sink document is valid for ReplaceOneDefaultFilterStrategy then correct ReplaceOneModel")
-    public void testReplaceOneDefaultFilterStrategyWitValidSinkDocument() {
+    @DisplayName("when sink document is valid for ReplaceOneDefaultStrategy then correct ReplaceOneModel")
+    public void testReplaceOneDefaultStrategyWitValidSinkDocument() {
 
         BsonDocument valueDoc = new BsonDocument(DBCollection.ID_FIELD_NAME,new BsonInt32(1004))
                 .append("first_name",new BsonString("Anne"))
@@ -105,7 +105,7 @@ public class WriteModelFilterStrategyTest {
                 .append("email",new BsonString("annek@noanswer.org"));
 
         WriteModel<BsonDocument> result =
-                REPLACE_ONE_DEFAULT_FILTER_STRATEGY.createWriteModel(new SinkDocument(null,valueDoc));
+                REPLACE_ONE_DEFAULT_STRATEGY.createWriteModel(new SinkDocument(null,valueDoc));
 
         assertTrue(result instanceof ReplaceOneModel,
                 () -> "result expected to be of type ReplaceOneModel");
@@ -127,11 +127,11 @@ public class WriteModelFilterStrategyTest {
     }
 
     @Test
-    @DisplayName("when value document is missing for ReplaceOneBusinessKeyFilterStrategy then DataException")
-    public void testReplaceOneBusinessKeyFilterStrategyWithMissingValueDocument() {
+    @DisplayName("when value document is missing for ReplaceOneBusinessKeyStrategy then DataException")
+    public void testReplaceOneBusinessKeyStrategyWithMissingValueDocument() {
 
         assertThrows(DataException.class,() ->
-                REPLACE_ONE_BUSINESS_KEY_FILTER_STRATEGY.createWriteModel(
+                REPLACE_ONE_BUSINESS_KEY_STRATEGY.createWriteModel(
                         new SinkDocument(new BsonDocument(), null)
                 )
         );
@@ -139,11 +139,11 @@ public class WriteModelFilterStrategyTest {
     }
 
     @Test
-    @DisplayName("when value document is missing an _id field for ReplaceOneBusinessKeyFilterStrategy then DataException")
-    public void testReplaceOneBusinessKeyFilterStrategyWithMissingIdFieldInValueDocument() {
+    @DisplayName("when value document is missing an _id field for ReplaceOneBusinessKeyStrategy then DataException")
+    public void testReplaceOneBusinessKeyStrategyWithMissingIdFieldInValueDocument() {
 
         assertThrows(DataException.class,() ->
-                REPLACE_ONE_BUSINESS_KEY_FILTER_STRATEGY.createWriteModel(
+                REPLACE_ONE_BUSINESS_KEY_STRATEGY.createWriteModel(
                         new SinkDocument(new BsonDocument(), new BsonDocument())
                 )
         );
@@ -151,8 +151,8 @@ public class WriteModelFilterStrategyTest {
     }
 
     @Test
-    @DisplayName("when sink document is valid for ReplaceOneBusinessKeyFilterStrategy then correct ReplaceOneModel")
-    public void testReplaceOneBusinessKeyFilterStrategyWitValidSinkDocument() {
+    @DisplayName("when sink document is valid for ReplaceOneBusinessKeyStrategy then correct ReplaceOneModel")
+    public void testReplaceOneBusinessKeyStrategyWitValidSinkDocument() {
 
         BsonDocument valueDoc = new BsonDocument(DBCollection.ID_FIELD_NAME,
                 new BsonDocument("first_name",new BsonString("Anne"))
@@ -164,7 +164,7 @@ public class WriteModelFilterStrategyTest {
                 .append("active", new BsonBoolean(true));
 
         WriteModel<BsonDocument> result =
-                REPLACE_ONE_BUSINESS_KEY_FILTER_STRATEGY.createWriteModel(new SinkDocument(null,valueDoc));
+                REPLACE_ONE_BUSINESS_KEY_STRATEGY.createWriteModel(new SinkDocument(null,valueDoc));
 
         assertTrue(result instanceof ReplaceOneModel,
                 () -> "result expected to be of type ReplaceOneModel");

@@ -409,7 +409,7 @@ together with the sink connector config below
     "mongodb.key.projection.list": "fieldA,fieldB",
     "mongodb.key.projection.type": "whitelist",
     "mongodb.collection": "mycollection",
-    "mongodb.replace.one.strategy":"at.grahsl.kafka.connect.mongodb.writemodel.filter.strategy.ReplaceOneBusinessKeyFilterStrategy"
+    "mongodb.replace.one.strategy":ReplaceOneBusinessKeyStrategy
   }
 }
 ```
@@ -494,7 +494,7 @@ At the moment the following settings can be configured by means of the *connecto
 | mongodb.key.projection.list         | comma separated list of field names for key projection                                 | string  | ""                                                                                         |                              | low        |
 | mongodb.key.projection.type         | whether or not and which key projection to use                                         | string  | none                                                                                       | [none, blacklist, whitelist] | low        |
 | mongodb.post.processor.chain        | comma separated list of post processor classes to build the chain with                 | string  | at.grahsl.kafka.connect.mongodb.processor.DocumentIdAdder                                  |                              | low        |
-| mongodb.replace.one.strategy        | how to build the filter doc for the replaceOne write model                             | string  | at.grahsl.kafka.connect.mongodb.writemodel.filter.strategy.ReplaceOneDefaultFilterStrategy |                              | low        |
+| mongodb.replace.one.strategy        | how to build the filter doc for the replaceOne write model                             | string  | ReplaceOneDefaultFilterStrategy |                              | low        |
 | mongodb.value.projection.list       | comma separated list of field names for value projection                               | string  | ""                                                                                         |                              | low        |
 | mongodb.value.projection.type       | whether or not and which value projection to use                                       | string  | none                                                                                       | [none, blacklist, whitelist] | low        |
 
