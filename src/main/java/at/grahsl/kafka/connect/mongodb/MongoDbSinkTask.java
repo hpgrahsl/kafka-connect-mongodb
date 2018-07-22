@@ -62,8 +62,8 @@ public class MongoDbSinkTask extends SinkTask {
     private int deferRetryMs;
     private PostProcessor processorChain;
     private CdcHandler cdcHandler;
-    private WriteModelStrategy replaceOneFilterStrategy;
-    private WriteModelStrategy deleteOneFilterStrategy;
+    private WriteModelStrategy writeModelStrategy;
+    private WriteModelStrategy deleteOneDefaultStrategy;
 
     private SinkConverter sinkConverter = new SinkConverter();
 
@@ -93,8 +93,8 @@ public class MongoDbSinkTask extends SinkTask {
             cdcHandler = sinkConfig.getCdcHandler();
         }
 
-        replaceOneFilterStrategy = sinkConfig.getWriteModelStrategy();
-        deleteOneFilterStrategy = new DeleteOneDefaultStrategy();
+        writeModelStrategy = sinkConfig.getWriteModelStrategy();
+        deleteOneDefaultStrategy = new DeleteOneDefaultStrategy();
 
     }
 
@@ -157,12 +157,12 @@ public class MongoDbSinkTask extends SinkTask {
                     SinkDocument doc = sinkConverter.convert(record);
                     processorChain.process(doc, record);
                     if(doc.getValueDoc().isPresent()) {
-                        docsToWrite.add(replaceOneFilterStrategy.createWriteModel(doc));
+                        docsToWrite.add(writeModelStrategy.createWriteModel(doc));
                     }
                     else {
                         if(doc.getKeyDoc().isPresent()
                                 && sinkConfig.isDeleteOnNullValues()) {
-                            docsToWrite.add(deleteOneFilterStrategy.createWriteModel(doc));
+                            docsToWrite.add(deleteOneDefaultStrategy.createWriteModel(doc));
                         }
                     }
                 }
