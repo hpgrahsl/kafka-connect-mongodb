@@ -47,37 +47,6 @@ import java.util.stream.Stream;
 
 public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
 
-    public static class RateLimitSettings {
-
-        private final int timeoutMs;
-        private final int everyN;
-        private long counter;
-
-        public RateLimitSettings(int timeoutMs, int everyN) {
-            this.timeoutMs = timeoutMs;
-            this.everyN = everyN;
-        }
-
-        public boolean isTriggered() {
-            counter++;
-            return (everyN != 0)
-                        && (counter >= everyN)
-                            && (counter % everyN == 0);
-        }
-
-        public int getTimeoutMs() {
-            return timeoutMs;
-        }
-
-        public int getEveryN() {
-            return everyN;
-        }
-
-        public long getCounter() {
-            return counter;
-        }
-    }
-
     public enum FieldProjectionTypes {
         NONE,
         BLACKLIST,
@@ -176,6 +145,37 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
     private static final String MONGODB_RATE_LIMITING_EVERY_N_DOC = "after how many processed batches the rate limit should trigger (NO rate limiting if n=0)";
 
     private static ObjectMapper objectMapper = new ObjectMapper();
+
+    public static class RateLimitSettings {
+
+        private final int timeoutMs;
+        private final int everyN;
+        private long counter;
+
+        public RateLimitSettings(int timeoutMs, int everyN) {
+            this.timeoutMs = timeoutMs;
+            this.everyN = everyN;
+        }
+
+        public boolean isTriggered() {
+            counter++;
+            return (everyN != 0)
+                    && (counter >= everyN)
+                    && (counter % everyN == 0);
+        }
+
+        public int getTimeoutMs() {
+            return timeoutMs;
+        }
+
+        public int getEveryN() {
+            return everyN;
+        }
+
+        public long getCounter() {
+            return counter;
+        }
+    }
 
     public MongoDbSinkConnectorConfig(ConfigDef config, Map<String, String> parsedConfig) {
         super(config, parsedConfig);
