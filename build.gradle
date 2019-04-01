@@ -49,19 +49,19 @@ repositories {
 }
 
 ext {
-    kafkaVersion='2.0.0'
-    mongodbDriverVersion='3.8.2'
+    kafkaVersion='2.2.0'
+    mongodbDriverVersion='3.10.1'
     logbackVersion='1.2.3'
-    jacksonVersion='2.9.7'
-    confluentSerializerVersion='5.0.0'
+    jacksonVersion='2.9.8'
+    confluentSerializerVersion='5.1.2'
     confluentConnectPluginVersion='0.11.1'
-    junitJupiterVersion='5.3.1'
-    junitPlatformVersion='1.3.1'
+    junitJupiterVersion='5.4.1'
+    junitPlatformVersion='1.4.1'
     hamcrestVersion='2.0.0.0'
-    mockitoVersion='2.22.0'
-    testcontainersVersion='1.9.1'
+    mockitoVersion='2.25.1'
+    testcontainersVersion='1.11.1'
     avroVersion='1.8.2'
-    okHttpVersion='3.11.0'
+    okHttpVersion='3.14.0'
     yamlBeansVersion='1.13'
 }
 
