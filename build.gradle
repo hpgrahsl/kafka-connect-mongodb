@@ -53,7 +53,7 @@ ext {
     mongodbDriverVersion='3.10.1'
     logbackVersion='1.2.3'
     jacksonVersion='2.9.8'
-    confluentSerializerVersion='5.1.2'
+    confluentSerializerVersion='5.2.0'
     confluentConnectPluginVersion='0.11.1'
     junitJupiterVersion='5.4.1'
     junitPlatformVersion='1.4.1'
