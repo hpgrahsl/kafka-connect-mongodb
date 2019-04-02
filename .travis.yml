@@ -26,7 +26,7 @@ before_install:
   - sudo mv docker-compose /usr/local/bin
 
 script:
-  - mvn install -Dmaven.javadoc.skip=true -B -V
+  - mvn install -Dmaven.javadoc.skip=true -Dgpg.skip -B -V
 
 after_success:
   - mvn jacoco:prepare-agent test jacoco:report
