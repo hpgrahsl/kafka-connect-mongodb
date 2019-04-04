@@ -32,7 +32,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
-import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.DockerComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -127,7 +126,7 @@ public class MinimumViableIT {
 
         String config = new String(Files.readAllBytes(Paths.get(SINK_CONNECTOR_CONFIG)));
 
-        deferExecutionToWaitForDataPropagation(Duration.ofMinutes(2),
+        deferExecutionToWaitForDataPropagation(Duration.ofSeconds(30),
                 "wait some time so that all container processes become available");
 
         registerMongoDBSinkConnector(config);
