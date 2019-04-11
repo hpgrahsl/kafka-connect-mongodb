@@ -82,6 +82,8 @@ public abstract class Renamer extends PostProcessor {
             doc.getValueDoc().ifPresent(vd -> doRenaming(PATH_PREFIX_VALUE, vd));
         }
 
+        getNext().ifPresent(pp -> pp.process(doc, orig));
+
     }
 
 }
