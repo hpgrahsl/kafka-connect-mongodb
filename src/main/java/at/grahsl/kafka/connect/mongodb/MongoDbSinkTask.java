@@ -242,7 +242,8 @@ public class MongoDbSinkTask extends SinkTask {
         LOGGER.debug("building CDC write model for {} record(s) into collection {}", records.size(), collectionName);
         return records.stream()
                 .map(sinkConverter::convert)
-                .map(cdcHandlers.get(collectionName)::handle)
+                .map(cdcHandlers.getOrDefault(collectionName,
+                        cdcHandlers.get(MongoDbSinkConnectorConfig.TOPIC_AGNOSTIC_KEY_NAME))::handle)
                 .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
                 .collect(Collectors.toList());
 

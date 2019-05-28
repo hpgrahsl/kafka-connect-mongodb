@@ -654,6 +654,10 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
 
         Map<String, CdcHandler> cdcHandlers = new HashMap<>();
 
+        if(isUsingCdcHandler("")) {
+            cdcHandlers.put(TOPIC_AGNOSTIC_KEY_NAME,getCdcHandler(""));
+        }
+
         splitAndTrimAndRemoveConfigListEntries(getString(MONGODB_COLLECTIONS_CONF))
                 .forEach(collection -> {
                             CdcHandler candidate = cdcHandlers.put(collection,getCdcHandler(collection));
