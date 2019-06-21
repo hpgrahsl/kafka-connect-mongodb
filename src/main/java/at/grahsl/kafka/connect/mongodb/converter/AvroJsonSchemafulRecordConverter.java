@@ -113,39 +113,51 @@ public class AvroJsonSchemafulRecordConverter implements RecordConverter {
                 case INT64:
                 case STRING:
                 case BYTES:
-                    handlePrimitiveField(doc, struct, field);
+                    handlePrimitiveField(doc, struct.get(field), field);
                     break;
                 case STRUCT:
-                    handleStructField(doc, struct, field);
+                    handleStructField(doc, (Struct)struct.get(field), field);
                     break;
                 case ARRAY:
-                    handleArrayField(doc, struct, field);
+                    handleArrayField(doc, (List)struct.get(field), field);
                     break;
                 case MAP:
-                    handleMapField(doc, struct, field);
+                    handleMapField(doc, (Map)struct.get(field), field);
                     break;
                 default:
+                    logger.error("Invalid schema. unexpected / unsupported schema type '"
+                                 + field.schema().type() + "' for field '"
+                                 + field.name() + "' value='" + struct + "'");
                     throw new DataException("unexpected / unsupported schema type " + field.schema().type());
             }
         } catch (Exception exc) {
+            logger.error("Error while processing field. schema type '"
+               + field.schema().type() + "' for field '"
+               + field.name() + "' value='" + struct + "'");
             throw new DataException("error while processing field " + field.name(), exc);
         }
 
     }
 
-    private void handleMapField(BsonDocument doc, Struct struct, Field field) {
+    private void handleMapField(BsonDocument doc, Map m, Field field) {
         logger.trace("handling complex type 'map'");
-        BsonDocument bd = new BsonDocument();
-        if(struct.get(field)==null) {
+        if(m==null) {
             logger.trace("no field in struct -> adding null");
             doc.put(field.name(), BsonNull.VALUE);
             return;
         }
-        Map m = (Map)struct.get(field);
+        BsonDocument bd = new BsonDocument();
         for(Object entry : m.keySet()) {
             String key = (String)entry;
-            if(field.schema().valueSchema().type().isPrimitive()) {
+            Schema.Type valueSchemaType = field.schema().valueSchema().type();
+            if(valueSchemaType.isPrimitive()) {
                 bd.put(key, getConverter(field.schema().valueSchema()).toBson(m.get(key),field.schema()));
+            } else if (valueSchemaType.equals(Schema.Type.ARRAY)) {
+                final Field elementField = new Field(key, 0, field.schema().valueSchema());
+                final List list = (List)m.get(key);
+                logger.trace("adding array values to {} of type valueSchema={} value='{}'",
+                   elementField.name(), elementField.schema().valueSchema(), list);
+                handleArrayField(bd, list, elementField);
             } else {
                 bd.put(key, toBsonDoc(field.schema().valueSchema(), m.get(key)));
             }
@@ -153,15 +165,16 @@ public class AvroJsonSchemafulRecordConverter implements RecordConverter {
         doc.put(field.name(), bd);
     }
 
-    private void handleArrayField(BsonDocument doc, Struct struct, Field field) {
-        logger.trace("handling complex type 'array'");
-        BsonArray array = new BsonArray();
-        if(struct.get(field)==null) {
-            logger.trace("no field in struct -> adding null");
+    private void handleArrayField(BsonDocument doc, List list, Field field) {
+        logger.trace("handling complex type 'array' of types '{}'",
+           field.schema().valueSchema().type());
+        if(list==null) {
+            logger.trace("no array -> adding null");
             doc.put(field.name(), BsonNull.VALUE);
             return;
         }
-        for(Object element : (List)struct.get(field)) {
+        BsonArray array = new BsonArray();
+        for(Object element : list) {
             if(field.schema().valueSchema().type().isPrimitive()) {
                 array.add(getConverter(field.schema().valueSchema()).toBson(element,field.schema()));
             } else {
@@ -173,18 +186,18 @@ public class AvroJsonSchemafulRecordConverter implements RecordConverter {
 
     private void handleStructField(BsonDocument doc, Struct struct, Field field) {
         logger.trace("handling complex type 'struct'");
-        if(struct.get(field)!=null) {
-            logger.trace(struct.get(field).toString());
-            doc.put(field.name(), toBsonDoc(field.schema(), struct.get(field)));
+        if(struct!=null) {
+            logger.trace(struct.toString());
+            doc.put(field.name(), toBsonDoc(field.schema(), struct));
         } else {
             logger.trace("no field in struct -> adding null");
             doc.put(field.name(), BsonNull.VALUE);
         }
     }
 
-    private void handlePrimitiveField(BsonDocument doc, Struct struct, Field field) {
-        logger.trace("handling primitive type '{}'",field.schema().type());
-        doc.put(field.name(), getConverter(field.schema()).toBson(struct.get(field),field.schema()));
+    private void handlePrimitiveField(BsonDocument doc, Object value, Field field) {
+        logger.trace("handling primitive type '{}' name='{}'",field.schema().type(),field.name());
+        doc.put(field.name(), getConverter(field.schema()).toBson(value,field.schema()));
     }
 
     private boolean isSupportedLogicalType(Schema schema) {

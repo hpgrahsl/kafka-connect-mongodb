@@ -48,6 +48,11 @@ The conversion is able to generically deal with nested key or value structures -
       ]}
     }},
     {"name": "lut", "type": {"type": "map", "values": "double"}},
+    {"name": "flags",
+        "type": [ "null", 
+                 {"type": "map", "values": {"type": "array", "items": "string"} } 
+                ],
+        "default": null },
     {"name": "raw", "type": "bytes"}
   ]
 }
