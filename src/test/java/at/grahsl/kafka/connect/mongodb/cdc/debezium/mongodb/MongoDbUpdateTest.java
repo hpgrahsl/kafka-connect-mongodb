@@ -35,6 +35,10 @@ public class MongoDbUpdateTest {
                     .append("last_name",new BsonString("Kretchmer"))
                 );
 
+    //USED to verify if oplog internals ($v field) are removed correctly
+    public static final BsonDocument UPDATE_DOC_WITH_OPLOG_INTERNALS =
+            UPDATE_DOC.clone().append("$v",new BsonInt32(1));
+
     @Test
     @DisplayName("when valid doc replace cdc event then correct ReplaceOneModel")
     public void testValidSinkDocumentForReplacement() {
@@ -73,6 +77,33 @@ public class MongoDbUpdateTest {
 
         BsonDocument valueDoc = new BsonDocument("op",new BsonString("u"))
                 .append("patch",new BsonString(UPDATE_DOC.toJson()));
+
+        WriteModel<BsonDocument> result =
+                MONGODB_UPDATE.perform(new SinkDocument(keyDoc,valueDoc));
+
+        assertTrue(result instanceof UpdateOneModel,
+                () -> "result expected to be of type UpdateOneModel");
+
+        UpdateOneModel<BsonDocument> writeModel =
+                (UpdateOneModel<BsonDocument>) result;
+
+        assertEquals(UPDATE_DOC,writeModel.getUpdate(),
+                ()-> "update doc not matching what is expected");
+
+        assertTrue(writeModel.getFilter() instanceof BsonDocument,
+                () -> "filter expected to be of type BsonDocument");
+
+        assertEquals(FILTER_DOC,writeModel.getFilter());
+
+    }
+
+    @Test
+    @DisplayName("when valid doc change cdc event containing internal oplog fields then correct UpdateOneModel")
+    public void testValidSinkDocumentWithInternalOploagFieldForUpdate() {
+        BsonDocument keyDoc = new BsonDocument("id",new BsonString("1004"));
+
+        BsonDocument valueDoc = new BsonDocument("op",new BsonString("u"))
+                .append("patch",new BsonString(UPDATE_DOC_WITH_OPLOG_INTERNALS.toJson()));
 
         WriteModel<BsonDocument> result =
                 MONGODB_UPDATE.perform(new SinkDocument(keyDoc,valueDoc));
