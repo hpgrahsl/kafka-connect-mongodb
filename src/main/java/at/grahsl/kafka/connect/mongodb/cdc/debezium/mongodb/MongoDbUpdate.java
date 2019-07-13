@@ -29,6 +29,7 @@ import org.bson.BsonDocument;
 public class MongoDbUpdate implements CdcOperation {
 
     public static final String JSON_DOC_FIELD_PATH = "patch";
+    public static final String INTERNAL_OPLOG_FIELD_V = "$v";
 
     private static final UpdateOptions UPDATE_OPTIONS =
             new UpdateOptions().upsert(true);
@@ -45,6 +46,12 @@ public class MongoDbUpdate implements CdcOperation {
             BsonDocument updateDoc = BsonDocument.parse(
                     valueDoc.getString(JSON_DOC_FIELD_PATH).getValue()
             );
+
+            //Check if the internal "$v" field is contained which was added to the
+            //oplog format in 3.6+ If so, then we simply remove it for now since
+            //it's not used by the sink connector at the moment and would break
+            //CDC-mode based "replication".
+            updateDoc.remove(INTERNAL_OPLOG_FIELD_V);
 
             //patch contains full new document for replacement
             if(updateDoc.containsKey(DBCollection.ID_FIELD_NAME)) {
