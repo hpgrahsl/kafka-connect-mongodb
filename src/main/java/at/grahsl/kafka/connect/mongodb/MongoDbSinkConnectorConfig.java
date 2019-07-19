@@ -17,8 +17,10 @@
 package at.grahsl.kafka.connect.mongodb;
 
 import at.grahsl.kafka.connect.mongodb.cdc.CdcHandler;
-import at.grahsl.kafka.connect.mongodb.cdc.debezium.mongodb.MongoDbHandler;
-import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.RdbmsHandler;
+import at.grahsl.kafka.connect.mongodb.cdc.CdcOperation;
+import at.grahsl.kafka.connect.mongodb.cdc.debezium.OperationType;
+import at.grahsl.kafka.connect.mongodb.cdc.debezium.mongodb.*;
+import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.*;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.mysql.MysqlHandler;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.postgres.PostgresHandler;
 import at.grahsl.kafka.connect.mongodb.processor.*;
@@ -78,6 +80,7 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
     public static final String MONGODB_FIELD_RENAMER_REGEXP_DEFAULT = "[]";
     public static final String MONGODB_POST_PROCESSOR_CHAIN_DEFAULT = "at.grahsl.kafka.connect.mongodb.processor.DocumentIdAdder";
     public static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DEFAULT = "";
+    public static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS_DEFAULT = "c,r,u,d";
     public static final boolean MONGODB_DELETE_ON_NULL_VALUES_DEFAULT = false;
     public static final String MONGODB_WRITEMODEL_STRATEGY_DEFAULT = "at.grahsl.kafka.connect.mongodb.writemodel.strategy.ReplaceOneDefaultStrategy";
     public static final int MONGODB_MAX_BATCH_SIZE_DEFAULT = 0;
@@ -128,6 +131,9 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
 
     public static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER = "mongodb.change.data.capture.handler";
     private static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DOC = "class name of CDC handler to use for processing";
+
+    public static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS = "mongodb.change.data.capture.handler.operations";
+    private static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS_DOC = "comma separated list of supported CDC operation types (missing ones result in no ops)";
 
     public static final String MONGODB_DELETE_ON_NULL_VALUES = "mongodb.delete.on.null.values";
     private static final String MONGODB_DELETE_ON_NULL_VALUES_DOC = "whether or not the connector tries to delete documents based on key when value is null";
@@ -257,6 +263,7 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
                 .define(MONGODB_FIELD_RENAMER_REGEXP, Type.STRING, MONGODB_FIELD_RENAMER_REGEXP_DEFAULT, Importance.LOW, MONGODB_FIELD_RENAMER_REGEXP_DOC)
                 .define(MONGODB_POST_PROCESSOR_CHAIN, Type.STRING, MONGODB_POST_PROCESSOR_CHAIN_DEFAULT, emptyString().or(matching(FULLY_QUALIFIED_CLASS_NAME_LIST)), Importance.LOW, MONGODB_POST_PROCESSOR_CHAIN_DOC)
                 .define(MONGODB_CHANGE_DATA_CAPTURE_HANDLER, Type.STRING, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DEFAULT, emptyString().or(matching(FULLY_QUALIFIED_CLASS_NAME)), Importance.LOW, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DOC)
+                .define(MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS, Type.STRING, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS_DEFAULT, Importance.LOW, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS_DOC)
                 .define(MONGODB_DELETE_ON_NULL_VALUES, Type.BOOLEAN, MONGODB_DELETE_ON_NULL_VALUES_DEFAULT, Importance.MEDIUM, MONGODB_DELETE_ON_NULL_VALUES_DOC)
                 .define(MONGODB_WRITEMODEL_STRATEGY, Type.STRING, MONGODB_WRITEMODEL_STRATEGY_DEFAULT, Importance.LOW, MONGODB_WRITEMODEL_STRATEGY_DOC)
                 .define(MONGODB_MAX_BATCH_SIZE, Type.INT, MONGODB_MAX_BATCH_SIZE_DEFAULT, ConfigDef.Range.atLeast(0), Importance.MEDIUM, MONGODB_MAX_BATCH_SIZE_DOC)
@@ -623,6 +630,69 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
         return getCdcHandler("");
     }
 
+    public Map<OperationType, CdcOperation> getCdcHandlerOperationMapping(Class<? extends CdcHandler> cdcHandler, String collection) {
+
+        Set<String> supportedOperations = new HashSet<>(
+                splitAndTrimAndRemoveConfigListEntries(getString(MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS,collection))
+        );
+
+        Map<OperationType, CdcOperation> operationMapping = new HashMap<>();
+
+        if (cdcHandler.isAssignableFrom(MysqlHandler.class)
+                || cdcHandler.isAssignableFrom(PostgresHandler.class)
+                || cdcHandler.isAssignableFrom(RdbmsHandler.class)) {
+
+            Stream.of(OperationType.values()).forEach(
+                    ot -> operationMapping.put(ot, new RdbmsNoOp())
+            );
+
+            supportedOperations.stream()
+                    .map(OperationType::fromText)
+                    .forEach(ot -> {
+                        switch (ot) {
+                            case CREATE:
+                            case READ:
+                                operationMapping.put(ot,new RdbmsInsert());
+                                break;
+                            case UPDATE:
+                                operationMapping.put(ot,new RdbmsUpdate());
+                                break;
+                            case DELETE:
+                                operationMapping.put(ot,new RdbmsDelete());
+                                break;
+                        }
+                    });
+
+        } else if (cdcHandler.isAssignableFrom(MongoDbHandler.class)) {
+
+            Stream.of(OperationType.values()).forEach(
+                    ot -> operationMapping.put(ot, new MongoDbNoOp())
+            );
+
+            supportedOperations.stream()
+                    .map(OperationType::fromText)
+                    .forEach(ot -> {
+                        switch (ot) {
+                            case CREATE:
+                            case READ:
+                                operationMapping.put(ot,new MongoDbInsert());
+                                break;
+                            case UPDATE:
+                                operationMapping.put(ot,new MongoDbUpdate());
+                                break;
+                            case DELETE:
+                                operationMapping.put(ot,new MongoDbDelete());
+                                break;
+                        }
+                    });
+
+        } else {
+            throw new ConfigException("error: unsupported cdc handler " + cdcHandler.getName());
+        }
+
+        return operationMapping;
+    }
+
     public CdcHandler getCdcHandler(String collection) {
         Set<String> predefinedCdcHandler = getPredefinedCdcHandlerClassNames();
 
@@ -637,9 +707,9 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
         }
 
         try {
-            return (CdcHandler) Class.forName(cdcHandler)
-                    .getConstructor(MongoDbSinkConnectorConfig.class)
-                    .newInstance(this);
+            Class<CdcHandler> cdcHandlerClass = (Class<CdcHandler>)Class.forName(cdcHandler);
+            return cdcHandlerClass.getConstructor(MongoDbSinkConnectorConfig.class,Map.class)
+                    .newInstance(this,getCdcHandlerOperationMapping(cdcHandlerClass,collection));
         } catch (ReflectiveOperationException e) {
             throw new ConfigException(e.getMessage(),e);
         } catch (ClassCastException e) {
