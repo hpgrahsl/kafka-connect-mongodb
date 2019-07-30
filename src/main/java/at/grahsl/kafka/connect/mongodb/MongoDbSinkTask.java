@@ -51,7 +51,7 @@ public class MongoDbSinkTask extends SinkTask {
     private static Logger LOGGER = LoggerFactory.getLogger(MongoDbSinkTask.class);
 
     private static final BulkWriteOptions BULK_WRITE_OPTIONS =
-                            new BulkWriteOptions().ordered(false);
+                            new BulkWriteOptions().ordered(true);
 
     private MongoDbSinkConnectorConfig sinkConfig;
     private MongoClient mongoClient;
