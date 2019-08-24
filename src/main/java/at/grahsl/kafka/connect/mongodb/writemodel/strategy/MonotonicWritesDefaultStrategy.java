@@ -19,15 +19,15 @@ import java.util.List;
  * records to the actual SinkDocument as meta-data before it gets written to the
  * MongoDB collection. The pre-defined and currently not(!) configurable data format
  * for this is using a sub-document with the following structure, field names
- * and value <PLACEHOLDERS>,
+ * and value &lt;PLACEHOLDERS&gt;:
  *
  * {
  *      ...,
  *
  *      "_kafkaCoords":{
- *   "_topic": "<TOPIC_NAME>",
- *   "_partition": <PARTITION_NUMBER>,
- *   "_offset": <OFFSET_NUMBER>
+ *   "_topic": "&lt;TOPIC_NAME&gt;",
+ *   "_partition": &lt;PARTITION_NUMBER&gt;,
+ *   "_offset": &lt;OFFSET_NUMBER&gt;
  *      },
  *
  *      ...

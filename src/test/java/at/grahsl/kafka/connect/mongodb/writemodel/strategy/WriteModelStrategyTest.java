@@ -7,11 +7,15 @@ import com.mongodb.client.model.ReplaceOneModel;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.WriteModel;
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.bson.*;
+import org.bson.conversions.Bson;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -30,6 +34,9 @@ public class WriteModelStrategyTest {
     public static final UpdateOneTimestampsStrategy UPDATE_ONE_TIMESTAMPS_STRATEGY =
             new UpdateOneTimestampsStrategy();
 
+    public static final MonotonicWritesDefaultStrategy MONOTONIC_WRITES_DEFAULT_STRATEGY =
+            new MonotonicWritesDefaultStrategy();
+
     public static final BsonDocument FILTER_DOC_DELETE_DEFAULT = new BsonDocument(DBCollection.ID_FIELD_NAME,
             new BsonDocument("id",new BsonInt32(1004)));
 
@@ -46,6 +53,9 @@ public class WriteModelStrategyTest {
             new BsonDocument("first_name",new BsonString("Anne"))
                     .append("last_name",new BsonString("Kretchmar"));
 
+    public static final BsonDocument FILTER_DOC_MONOTONIC_WRITES_DEFAULT =
+            new BsonDocument(DBCollection.ID_FIELD_NAME,new BsonInt32(1004));
+
     public static final BsonDocument REPLACEMENT_DOC_BUSINESS_KEY =
             new BsonDocument("first_name",new BsonString("Anne"))
                     .append("last_name",new BsonString("Kretchmar"))
@@ -61,6 +71,16 @@ public class WriteModelStrategyTest {
                     .append("first_name",new BsonString("Anne"))
                     .append("last_name",new BsonString("Kretchmar"))
                     .append("email",new BsonString("annek@noanswer.org"));
+
+    public static final BsonDocument MONOTONIC_WRITES_DOC_DEFAULT =
+            new BsonDocument(DBCollection.ID_FIELD_NAME,new BsonInt32(1004))
+                    .append("first_name",new BsonString("Anne"))
+                    .append("last_name",new BsonString("Kretchmar"))
+                    .append("email",new BsonString("annek@noanswer.org"))
+                    .append("_kafkaCoords",new BsonDocument("_topic",new BsonString("some-topic"))
+                            .append("_partition",new BsonInt32(1))
+                            .append("_offset",new BsonInt64(111))
+                    );
 
     @Test
     @DisplayName("when key document is missing for DeleteOneDefaultStrategy then DataException")
@@ -250,6 +270,118 @@ public class WriteModelStrategyTest {
 
         assertTrue(writeModel.getOptions().isUpsert(),
                 () -> "update expected to be done in upsert mode");
+
+    }
+
+    @Test
+    @DisplayName("when value document is missing for MonotonicWritesDefaultStrategy then DataException")
+    public void  testMonotonicWritesDefaultStrategyWithMissingValueDocument() {
+
+        assertThrows(DataException.class,() ->
+                MONOTONIC_WRITES_DEFAULT_STRATEGY.createWriteModel(
+                        new SinkDocument(new BsonDocument(), null),null
+                )
+        );
+
+    }
+
+    @Test
+    @DisplayName("when sink record param is missing for MonotonicWritesDefaultStrategy then DataException")
+    public void  testMonotonicWritesDefaultStrategyWithMissingSinkRecord() {
+
+        assertThrows(DataException.class,() ->
+                MONOTONIC_WRITES_DEFAULT_STRATEGY.createWriteModel(
+                        new SinkDocument(new BsonDocument(), null)
+                )
+        );
+
+    }
+
+    @Test
+    @DisplayName("when sink document and sink record is valid for MonotonicWritesDefaultStrategy then correct UpdateOneModel")
+    public void testMonotonicWritesDefaultStrategyWithValidSinkDocumentAndSinkRecord() {
+
+        BsonDocument valueDoc = new BsonDocument(DBCollection.ID_FIELD_NAME,new BsonInt32(1004))
+                .append("first_name",new BsonString("Anne"))
+                .append("last_name",new BsonString("Kretchmar"))
+                .append("email",new BsonString("annek@noanswer.org"));
+
+        SinkRecord sinkRecord = new SinkRecord("some-topic",1,null,null,null,null,111);
+
+        WriteModel<BsonDocument> result =
+                MONOTONIC_WRITES_DEFAULT_STRATEGY.createWriteModel(new SinkDocument(null,valueDoc),sinkRecord);
+
+        assertTrue(result instanceof UpdateOneModel,
+                () -> "result expected to be of type UpdateOneModel");
+
+        UpdateOneModel<BsonDocument> writeModel =
+                (UpdateOneModel<BsonDocument>) result;
+
+        assertTrue(writeModel.getFilter() instanceof BsonDocument,
+                () -> "filter expected to be of type BsonDocument");
+
+        assertEquals(FILTER_DOC_MONOTONIC_WRITES_DEFAULT,writeModel.getFilter());
+
+        List<? extends Bson> updatePipeline = writeModel.getUpdatePipeline();
+
+        assertNotNull(updatePipeline,() -> "update pipeline must not be null");
+        assertEquals(1, updatePipeline.size(),
+                () -> "update pipeline expected to contain exactly 1 element only");
+
+        BsonDocument first = (BsonDocument)updatePipeline.get(0);
+
+        BsonDocument condDoc = first.get("$replaceRoot").asDocument()
+                .get("newRoot").asDocument()
+                .get("$cond").asDocument();
+
+        String condIfP1Name = condDoc.get("if").asDocument().get("$and").asArray()
+                .get(0).asDocument().get("$eq").asArray()
+                .get(0).asString().getValue();
+
+        String condIfP1Value = condDoc.get("if").asDocument().get("$and").asArray()
+                .get(0).asDocument().get("$eq").asArray()
+                .get(1).asString().getValue();
+
+        assertEquals("$$ROOT."+ MonotonicWritesDefaultStrategy.FIELD_KAFKA_COORDS
+                + "." + MonotonicWritesDefaultStrategy.FIELD_TOPIC,condIfP1Name);
+        assertEquals(sinkRecord.topic(),condIfP1Value);
+
+        String condIfP2Name =  condDoc.get("if").asDocument().get("$and").asArray()
+                .get(1).asDocument().get("$eq").asArray()
+                .get(0).asString().getValue();
+
+        Integer condIfP2Value = condDoc.get("if").asDocument().get("$and").asArray()
+                .get(1).asDocument().get("$eq").asArray()
+                .get(1).asInt32().getValue();
+
+        assertEquals("$$ROOT."+ MonotonicWritesDefaultStrategy.FIELD_KAFKA_COORDS
+                + "." + MonotonicWritesDefaultStrategy.FIELD_PARTITION,condIfP2Name);
+        assertEquals(sinkRecord.kafkaPartition(),condIfP2Value);
+
+        String condIfP3Name =  condDoc.get("if").asDocument().get("$and").asArray()
+                .get(2).asDocument().get("$gte").asArray()
+                .get(0).asString().getValue();
+
+        Long condIfP3Value = condDoc.get("if").asDocument().get("$and").asArray()
+                .get(2).asDocument().get("$gte").asArray()
+                .get(1).asInt64().getValue();
+
+        assertEquals("$$ROOT."+ MonotonicWritesDefaultStrategy.FIELD_KAFKA_COORDS
+                + "." + MonotonicWritesDefaultStrategy.FIELD_OFFSET,condIfP3Name);
+        assertEquals(sinkRecord.kafkaOffset(),condIfP3Value);
+
+        String condThen = condDoc.get("then").asString().getValue();
+
+        assertEquals("$$ROOT",condThen,
+                () -> "conditional then branch must be $$ROOT");
+
+        BsonDocument condElseDoc = condDoc.get("else").asDocument();
+
+        assertEquals(MONOTONIC_WRITES_DOC_DEFAULT,condElseDoc,
+                ()-> "conditional else branch contains wrong update document");
+
+        assertTrue(writeModel.getOptions().isUpsert(),
+                () -> "replacement expected to be done in upsert mode");
 
     }
 
