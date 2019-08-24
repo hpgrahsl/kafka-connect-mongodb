@@ -217,7 +217,7 @@ public class MongoDbSinkTask extends SinkTask {
                     if(doc.getValueDoc().isPresent()) {
                         docsToWrite.add(writeModelStrategies.getOrDefault(
                                 collectionName, writeModelStrategies.get(MongoDbSinkConnectorConfig.TOPIC_AGNOSTIC_KEY_NAME)
-                            ).createWriteModel(doc)
+                            ).createWriteModel(doc,record)
                         );
                     }
                     else {

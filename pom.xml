@@ -41,7 +41,7 @@
 
     <properties>
         <kafka.version>2.2.0</kafka.version>
-        <mongodb.driver.version>3.10.1</mongodb.driver.version>
+        <mongodb.driver.version>3.11.0</mongodb.driver.version>
         <logback.version>1.2.3</logback.version>
         <junit.jupiter.version>5.4.1</junit.jupiter.version>
         <junit.vintage.version>5.4.1</junit.vintage.version>

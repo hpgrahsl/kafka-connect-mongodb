@@ -17,7 +17,7 @@ Future releases might additionally support the [asynchronous driver](http://mong
 
 ### Supported Sink Record Structure
 Currently the connector is able to process Kafka Connect SinkRecords with
-support for the following schema types [Schema.Type](https://kafka.apache.org/21/javadoc/org/apache/kafka/connect/data/Schema.Type.html):
+support for the following schema types [Schema.Type](https://kafka.apache.org/22/javadoc/org/apache/kafka/connect/data/Schema.Type.html):
 *INT8, INT16, INT32, INT64, FLOAT32, FLOAT64, BOOLEAN, STRING, BYTES, ARRAY, MAP, STRUCT*.
 
 The conversion is able to generically deal with nested key or value structures - based on the supported types above - like the following example which is based on [AVRO](https://avro.apache.org/)
@@ -377,8 +377,9 @@ However, there are other use cases which need different approaches and the **cus
 
 * **default behaviour** at.grahsl.kafka.connect.mongodb.writemodel.strategy.**ReplaceOneDefaultStrategy**
 * **business key** (-> see [use case 1](https://github.com/hpgrahsl/kafka-connect-mongodb#use-case-1-employing-business-keys)) at.grahsl.kafka.connect.mongodb.writemodel.strategy.**ReplaceOneBusinessKeyStrategy**
-* **delete on null values** at.grahsl.kafka.connect.mongodb.writemodel.strategy.**DeleteOneDefaultStrategy** implicitly used when config option _mongodb.delete.on.null.values=true_ for [convention-based deletion](https://github.com/hpgrahsl/kafka-connect-mongodb#convention-based-deletion-on-null-values)
 * **add inserted/modified timestamps** (-> see [use case 2](https://github.com/hpgrahsl/kafka-connect-mongodb#use-case-2-add-inserted-and-modified-timestamps)) at.grahsl.kafka.connect.mongodb.writemodel.strategy.**UpdateOneTimestampsStrategy**
+* **monotonic write behaviour** (-> see [use case 3](https://github.com/hpgrahsl/kafka-connect-mongodb#use-case-3-prevent-updates-for-stale-data)) at.grahsl.kafka.connect.mongodb.writemodel.strategy.**MonotonicWritesDefaultStrategy**
+* **delete on null values** at.grahsl.kafka.connect.mongodb.writemodel.strategy.**DeleteOneDefaultStrategy** implicitly used when config option _mongodb.delete.on.null.values=true_ for [convention-based deletion](https://github.com/hpgrahsl/kafka-connect-mongodb#convention-based-deletion-on-null-values)
 
 _NOTE:_ Future versions will allow to make use of arbitrary, individual strategies that can be registered and easily used as _mongodb.writemodel.strategy_ configuration setting.
 
@@ -506,6 +507,28 @@ then the existing MongoDB document will get updated together with a fresh timest
   "values": [12.34, 23.45]
 }
 ```
+
+##### Use Case 3: Prevent updates for stale data
+When the sink connector processes data it can happen that the same records might get reprocessed. For instance, this affects any records for which the corresponding offsets haven't been successfully committed for whatever reason. Ofentimes, the reprocessing as such isn't a big deal especially if write models use upsert semantics. **However, for certain scenarios it might be unacceptable that "older" records can lead to the overwriting of "newer" documents which are already present in the sink.** Given this behaviour, it might happen for queries against the sink to temporarily see stale data until the reprocessing has caught up.
+
+The **MonotonicWritesDefaultStrategy allows to prevent any such writes based on stale data** against the sink. It adds the Kafka coordinates of processed records to the actual SinkDocument as _meta-data_ before it gets written to the MongoDB collection. The pre-defined and currently not(!) configurable data format for this is using a sub-document with the following structure, field names and value &lt;PLACEHOLDERS&gt;
+
+```json
+ {
+    ...,
+    "_kafkaCoords":{
+        "_topic": "<TOPIC_NAME>",
+        "_partition": <PARTITION_NUMBER>,
+        "_offset": <OFFSET_NUMBER>;
+    },
+    ...
+ }
+```
+
+This _meta-data_ is used to perform the actual staleness check, namely, that upsert operations based on the corresponding document's **_id** field will get suppressed, in case newer data has already been written to the sink in the past. **Newer data means that a document exhibiting a greater than or equal offset for the same Kafka topic and partition is already present in the corresponding MongoDB collection.**
+
+_! IMPORTANT NOTE !_
+This WriteModelStrategy needs **MongoDB version 4.2+** and **Java Driver 3.11+** since lower versions of either lack the support for leveraging update pipeline syntax which is needed to perform the conditional checks during write operations.   
 
 ### Change Data Capture Mode
 The sink connector can also be used in a different operation mode in order to handle change data capture (CDC) events. Currently, the following CDC events from [Debezium](http://debezium.io/) can be processed:
