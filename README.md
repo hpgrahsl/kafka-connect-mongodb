@@ -511,13 +511,13 @@ then the existing MongoDB document will get updated together with a fresh timest
 ##### Use Case 3: Prevent updates for stale data
 When the sink connector processes data it can happen that the same records might get reprocessed. For instance, this affects any records for which the corresponding offsets haven't been successfully committed for whatever reason. Ofentimes, the reprocessing as such isn't a big deal especially if write models use upsert semantics. **However, for certain scenarios it might be unacceptable that "older" records can lead to the overwriting of "newer" documents which are already present in the sink.** Given this behaviour, it might happen for queries against the sink to temporarily see stale data until the reprocessing has caught up.
 
-The **MonotonicWritesDefaultStrategy allows to prevent any such writes based on stale data** against the sink. It adds the Kafka coordinates of processed records to the actual SinkDocument as meta-data before it gets written to the MongoDB collection. The pre-defined and currently not(!) configurable data format for this is using a sub-document with the following structure, field names and value &lt;PLACEHOLDERS&gt;
+The **MonotonicWritesDefaultStrategy allows to prevent any such writes based on stale data** against the sink. It adds the Kafka coordinates of processed records to the actual SinkDocument as _meta-data_ before it gets written to the MongoDB collection. The pre-defined and currently not(!) configurable data format for this is using a sub-document with the following structure, field names and value &lt;PLACEHOLDERS&gt;
 
 ```json
  {
     ...,
     "_kafkaCoords":{
-        "_topic": "<TOPIC_NAME&gt>",
+        "_topic": "<TOPIC_NAME>",
         "_partition": <PARTITION_NUMBER>,
         "_offset": <OFFSET_NUMBER>;
     },
@@ -525,9 +525,9 @@ The **MonotonicWritesDefaultStrategy allows to prevent any such writes based on 
  }
 ```
 
-This "meta-data" is used to perform the actual staleness check, namely, that upsert operations based on the corresponding document's _id field will get suppressed, in case newer data has already been written to the sink in the past. Newer data means that a document exhibiting a greater than or equal offset for the same Kafka topic and partition is already present in the corresponding MongoDB collection.
+This _meta-data_ is used to perform the actual staleness check, namely, that upsert operations based on the corresponding document's **_id** field will get suppressed, in case newer data has already been written to the sink in the past. **Newer data means that a document exhibiting a greater than or equal offset for the same Kafka topic and partition is already present in the corresponding MongoDB collection.**
 
-**! IMPORTANT NOTE !**
+_! IMPORTANT NOTE !_
 This WriteModelStrategy needs **MongoDB version 4.2+** and **Java Driver 3.11+** since lower versions of either lack the support for leveraging update pipeline syntax which is needed to perform the conditional checks during write operations.   
 
 ### Change Data Capture Mode
