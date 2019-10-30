@@ -48,7 +48,7 @@
         <junit.platform.version>1.4.1</junit.platform.version>
         <mockito.version>2.25.1</mockito.version>
         <hamcrest.version>2.0.0.0</hamcrest.version>
-        <jackson.version>2.9.8</jackson.version>
+        <jackson.version>2.10.0</jackson.version>
         <jacoco.plugin.version>0.8.3</jacoco.plugin.version>
         <codacy.plugin.version>1.1.0</codacy.plugin.version>
         <mvn.jar.plugin.version>3.1.1</mvn.jar.plugin.version>
