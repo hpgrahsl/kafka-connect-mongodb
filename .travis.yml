@@ -4,7 +4,7 @@ services:
   - docker
 
 env:
-  DOCKER_COMPOSE_VERSION: 1.11.2
+  DOCKER_COMPOSE_VERSION=1.11.2
 
 addons:
   hosts:
@@ -17,7 +17,8 @@ addons:
 language: java
 
 jdk:
-  - oraclejdk8
+  - openjdk8
+  - openjdk11
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
