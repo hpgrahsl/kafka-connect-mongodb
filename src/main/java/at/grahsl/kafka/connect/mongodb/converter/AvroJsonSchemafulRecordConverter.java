@@ -28,6 +28,7 @@ import org.apache.kafka.connect.errors.DataException;
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.BsonNull;
+import org.bson.BsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,7 +120,7 @@ public class AvroJsonSchemafulRecordConverter implements RecordConverter {
                     handleStructField(doc, (Struct)struct.get(field), field);
                     break;
                 case ARRAY:
-                    handleArrayField(doc, (List)struct.get(field), field);
+                    doc.put(field.name(),handleArrayField((List)struct.get(field), field));
                     break;
                 case MAP:
                     handleMapField(doc, (Map)struct.get(field), field);
@@ -157,7 +158,7 @@ public class AvroJsonSchemafulRecordConverter implements RecordConverter {
                 final List list = (List)m.get(key);
                 logger.trace("adding array values to {} of type valueSchema={} value='{}'",
                    elementField.name(), elementField.schema().valueSchema(), list);
-                handleArrayField(bd, list, elementField);
+                bd.put(key, handleArrayField(list, elementField));
             } else {
                 bd.put(key, toBsonDoc(field.schema().valueSchema(), m.get(key)));
             }
@@ -165,23 +166,26 @@ public class AvroJsonSchemafulRecordConverter implements RecordConverter {
         doc.put(field.name(), bd);
     }
 
-    private void handleArrayField(BsonDocument doc, List list, Field field) {
+    private BsonValue handleArrayField(List list, Field field) {
         logger.trace("handling complex type 'array' of types '{}'",
            field.schema().valueSchema().type());
         if(list==null) {
             logger.trace("no array -> adding null");
-            doc.put(field.name(), BsonNull.VALUE);
-            return;
+            return BsonNull.VALUE;
         }
         BsonArray array = new BsonArray();
+        Schema.Type st = field.schema().valueSchema().type();
         for(Object element : list) {
-            if(field.schema().valueSchema().type().isPrimitive()) {
+            if(st.isPrimitive()) {
                 array.add(getConverter(field.schema().valueSchema()).toBson(element,field.schema()));
+            } else if(st == Schema.Type.ARRAY) {
+                Field elementField = new Field("first", 0, field.schema().valueSchema());
+                array.add(handleArrayField((List)element,elementField));
             } else {
                 array.add(toBsonDoc(field.schema().valueSchema(), element));
             }
         }
-        doc.put(field.name(), array);
+        return array;
     }
 
     private void handleStructField(BsonDocument doc, Struct struct, Field field) {

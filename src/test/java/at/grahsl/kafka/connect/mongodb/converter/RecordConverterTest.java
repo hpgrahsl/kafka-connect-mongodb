@@ -61,6 +61,7 @@ public class RecordConverterTest {
                 "\"mySubDoc1\":{\"myString\":\"hello json\"}," +
                 "\"myArray1\":[\"str_1\",\"str_2\",\"...\",\"str_N\"]," +
                 "\"myArray2\":[{\"k\":\"a\",\"v\":1},{\"k\":\"b\",\"v\":2},{\"k\":\"c\",\"v\":3}]," +
+                "\"myArray3\":[[[1],[],[2,3],[4,5,6]]]," +
                 "\"mySubDoc2\":{\"k1\":9,\"k2\":8,\"k3\":7}," +
                 "\"myMapOfStrings\":{\"k1\": [ \"v1-a\", \"v1-b\" ],\"k2\": [ \"v2-a\" ],\"k3\":[ \"v3-a\", \"v3-b\", \"v3-c\" ]}," +
                 "\"myMapOfInts\":{\"k1\": [ 11, 12 ],\"k2\": [ 21 ],\"k3\":[ 31, 32, 33 ]}," +
@@ -85,6 +86,7 @@ public class RecordConverterTest {
                                     .field("v",Schema.INT32_SCHEMA)
                                     .build())
                 )
+                .field("myArray3", SchemaBuilder.array(SchemaBuilder.array(SchemaBuilder.array(Schema.INT32_SCHEMA))))
                 .field("mySubDoc2", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build())
                 .field( "myMapOfStrings", SchemaBuilder.map(Schema.STRING_SCHEMA, SchemaBuilder.array(Schema.STRING_SCHEMA).build()).build())
                 .field( "myMapOfInts", SchemaBuilder.map(Schema.STRING_SCHEMA, SchemaBuilder.array(Schema.INT32_SCHEMA).build()).build())
@@ -113,6 +115,9 @@ public class RecordConverterTest {
                                 .put("k","c").put("v",3)
                         )
                 )
+                .put("myArray3", Arrays.asList(
+                        Arrays.asList(Arrays.asList(1),Arrays.asList(),Arrays.asList(2,3),Arrays.asList(4,5,6))
+                ))
                 .put("mySubDoc2",new HashMap<String,Integer>(){{ put("k1",9); put("k2",8); put("k3",7);}})
                 .put("myMapOfStrings", new HashMap<String, List<String>>(){{
                    put("k1", Arrays.asList("v1-a", "v1-b"));
@@ -150,6 +155,10 @@ public class RecordConverterTest {
                 new HashMap<Object,Object>(){{put("k","a");put("v",1);}},
                 new HashMap<Object,Object>(){{put("k","b");put("v",2);}},
                 new HashMap<Object,Object>(){{put("k","c");put("v",3);}}
+                )
+        );
+        OBJ_MAP_1.put("myArray3",Arrays.asList(
+                Arrays.asList(Arrays.asList(1), Arrays.asList(), Arrays.asList(2,3), Arrays.asList(4,5,6))
                 )
         );
         OBJ_MAP_1.put("mySubDoc2",new HashMap<String,Integer>(){{ put("k1",9); put("k2",8); put("k3",7);}});
@@ -194,6 +203,14 @@ public class RecordConverterTest {
                         new BsonDocument("k", new BsonString("a")).append("v", new BsonInt32(1)),
                         new BsonDocument("k", new BsonString("b")).append("v", new BsonInt32(2)),
                         new BsonDocument("k", new BsonString("c")).append("v", new BsonInt32(3))))
+                )
+                .append("myArray3", new BsonArray(Arrays.asList(
+                        new BsonArray(Arrays.asList(
+                                new BsonArray(Arrays.asList(new BsonInt32(1))),
+                                new BsonArray(),
+                                new BsonArray(Arrays.asList(new BsonInt32(2),new BsonInt32(3))),
+                                new BsonArray(Arrays.asList(new BsonInt32(4),new BsonInt32(5),new BsonInt32(6)))
+                        ))))
                 )
                 .append("mySubDoc2", new BsonDocument("k1", new BsonInt32(9))
                         .append("k2", new BsonInt32(8))
