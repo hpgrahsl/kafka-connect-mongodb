@@ -42,6 +42,7 @@ import org.apache.kafka.common.config.ConfigValue;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -630,69 +631,6 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
         return getCdcHandler("");
     }
 
-    public Map<OperationType, CdcOperation> getCdcHandlerOperationMapping(Class<? extends CdcHandler> cdcHandler, String collection) {
-
-        Set<String> supportedOperations = new HashSet<>(
-                splitAndTrimAndRemoveConfigListEntries(getString(MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS,collection))
-        );
-
-        Map<OperationType, CdcOperation> operationMapping = new HashMap<>();
-
-        if (cdcHandler.isAssignableFrom(MysqlHandler.class)
-                || cdcHandler.isAssignableFrom(PostgresHandler.class)
-                || cdcHandler.isAssignableFrom(RdbmsHandler.class)) {
-
-            Stream.of(OperationType.values()).forEach(
-                    ot -> operationMapping.put(ot, new RdbmsNoOp())
-            );
-
-            supportedOperations.stream()
-                    .map(OperationType::fromText)
-                    .forEach(ot -> {
-                        switch (ot) {
-                            case CREATE:
-                            case READ:
-                                operationMapping.put(ot,new RdbmsInsert());
-                                break;
-                            case UPDATE:
-                                operationMapping.put(ot,new RdbmsUpdate());
-                                break;
-                            case DELETE:
-                                operationMapping.put(ot,new RdbmsDelete());
-                                break;
-                        }
-                    });
-
-        } else if (cdcHandler.isAssignableFrom(MongoDbHandler.class)) {
-
-            Stream.of(OperationType.values()).forEach(
-                    ot -> operationMapping.put(ot, new MongoDbNoOp())
-            );
-
-            supportedOperations.stream()
-                    .map(OperationType::fromText)
-                    .forEach(ot -> {
-                        switch (ot) {
-                            case CREATE:
-                            case READ:
-                                operationMapping.put(ot,new MongoDbInsert());
-                                break;
-                            case UPDATE:
-                                operationMapping.put(ot,new MongoDbUpdate());
-                                break;
-                            case DELETE:
-                                operationMapping.put(ot,new MongoDbDelete());
-                                break;
-                        }
-                    });
-
-        } else {
-            throw new ConfigException("error: unsupported cdc handler " + cdcHandler.getName());
-        }
-
-        return operationMapping;
-    }
-
     public CdcHandler getCdcHandler(String collection) {
         Set<String> predefinedCdcHandler = getPredefinedCdcHandlerClassNames();
 
@@ -706,10 +644,14 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
             throw new ConfigException("error: unknown cdc handler "+cdcHandler);
         }
 
+        List<OperationType> supportedOperations = new HashSet<>(
+                splitAndTrimAndRemoveConfigListEntries(getString(MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS,collection))
+        ).stream().map(OperationType::fromText).collect(Collectors.toList());
+
         try {
             Class<CdcHandler> cdcHandlerClass = (Class<CdcHandler>)Class.forName(cdcHandler);
-            return cdcHandlerClass.getConstructor(MongoDbSinkConnectorConfig.class,Map.class)
-                    .newInstance(this,getCdcHandlerOperationMapping(cdcHandlerClass,collection));
+            return cdcHandlerClass.getConstructor(MongoDbSinkConnectorConfig.class,List.class)
+                    .newInstance(this,supportedOperations);
         } catch (ReflectiveOperationException e) {
             throw new ConfigException(e.getMessage(),e);
         } catch (ClassCastException e) {

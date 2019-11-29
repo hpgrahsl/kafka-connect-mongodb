@@ -597,6 +597,82 @@ public class MongoDbSinkTaskTest {
 
     }
 
+    @Test
+    @DisplayName("test build WriteModelCDC for Rdbms NoOp used for all operation types")
+    void testBuildWriteModelCdcForRdbmsNoOpWithAllOperationTypes() {
+
+        Schema keySchema = getRdbmsKeySchemaSample();
+        Schema valueSchema = getRdbmsValueSchemaSample();
+        List<SinkRecord> sinkRecords = new ArrayList<SinkRecord>() {{
+            add(new SinkRecord("test-topic",0,
+                    keySchema,new Struct(keySchema)
+                    .put("id",1234),
+                    valueSchema,new Struct(valueSchema)
+                    .put("op","c")
+                    .put("before", null)
+                    .put("after",
+                            new Struct(valueSchema.field("after").schema())
+                                    .put("id",1234)
+                                    .put("first_name","Alice_1234")
+                                    .put("last_name","van Wonderland")
+                                    .put("email","alice_1234@wonder.land"))
+                    //.put("source",...) //NOTE: SKIPPED SINCE NOT USED AT ALL SO FAR
+                    ,0
+            ));
+            add(new SinkRecord("test-topic",0,
+                    keySchema,new Struct(keySchema)
+                    .put("id",1234),
+                    valueSchema,new Struct(valueSchema)
+                    .put("op","u")
+                    .put("before", new Struct(valueSchema.field("before").schema())
+                            .put("id",1234)
+                            .put("first_name","Alice_1234")
+                            .put("last_name","van Wonderland")
+                            .put("email","alice_1234@wonder.land"))
+                    .put("after", new Struct(valueSchema.field("after").schema())
+                            .put("id",1234)
+                            .put("first_name","Alice1234")
+                            .put("last_name","in Wonderland")
+                            .put("email","alice1234@wonder.land"))
+                    //.put("source",...) //NOTE: SKIPPED SINCE NOT USED AT ALL SO FAR
+                    ,1
+            ));
+            add(new SinkRecord("test-topic",0,
+                    keySchema,new Struct(keySchema)
+                    .put("id",1234),
+                    valueSchema,new Struct(valueSchema)
+                    .put("op","d")
+                    .put("before", new Struct(valueSchema.field("before").schema())
+                            .put("id",1234)
+                            .put("first_name","Alice1234")
+                            .put("last_name","in Wonderland")
+                            .put("email","alice1234@wonder.land"))
+                    .put("after", null)
+                    //.put("source",...) //NOTE: SKIPPED SINCE NOT USED AT ALL SO FAR
+                    ,2));
+        }};
+
+        MongoDbSinkTask sinkTask = new MongoDbSinkTask();
+        Map<String,String> props = new HashMap<>();
+        props.put("topics","dbserver1.catalogA.tableB");
+        props.put(MongoDbSinkConnectorConfig.MONGODB_COLLECTIONS_CONF,"dbserver1.catalogA.tableB");
+        props.put(MongoDbSinkConnectorConfig.MONGODB_COLLECTION_CONF
+                +"."+"dbserver1.catalogA.tableB","dbserver1.catalogA.tableB");
+        props.put(MongoDbSinkConnectorConfig.MONGODB_CHANGE_DATA_CAPTURE_HANDLER
+                +"."+"dbserver1.catalogA.tableB",RdbmsHandler.class.getName());
+        props.put(MongoDbSinkConnectorConfig.MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS
+                +"."+"dbserver1.catalogA.tableB","");
+        sinkTask.start(props);
+
+        List<? extends WriteModel> writeModels =
+                sinkTask.buildWriteModelCDC(sinkRecords,"dbserver1.catalogA.tableB");
+
+        assertNotNull(writeModels, "WriteModel list was null");
+
+        assertTrue(writeModels.isEmpty(), "WriteModel list was NOT empty");
+
+    }
+
     private static Schema getRdbmsKeySchemaSample() {
         return SchemaBuilder.struct()
                 .name("dbserver1.catalogA.tableB.Key")

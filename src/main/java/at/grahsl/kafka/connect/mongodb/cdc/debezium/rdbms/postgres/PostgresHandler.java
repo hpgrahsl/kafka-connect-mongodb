@@ -21,6 +21,7 @@ import at.grahsl.kafka.connect.mongodb.cdc.CdcOperation;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.OperationType;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.RdbmsHandler;
 
+import java.util.List;
 import java.util.Map;
 
 public class PostgresHandler extends RdbmsHandler {
@@ -36,6 +37,10 @@ public class PostgresHandler extends RdbmsHandler {
 
     public PostgresHandler(MongoDbSinkConnectorConfig config, Map<OperationType, CdcOperation> operations) {
         super(config, operations);
+    }
+
+    public PostgresHandler(MongoDbSinkConnectorConfig config, List<OperationType> supportedTypes) {
+        super(config, supportedTypes);
     }
 
 }
