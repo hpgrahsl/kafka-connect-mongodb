@@ -1,6 +1,7 @@
 package at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms;
 
 import at.grahsl.kafka.connect.mongodb.MongoDbSinkConnectorConfig;
+import at.grahsl.kafka.connect.mongodb.cdc.CdcOperation;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.OperationType;
 import at.grahsl.kafka.connect.mongodb.converter.SinkDocument;
 import com.mongodb.client.model.DeleteOneModel;
@@ -34,6 +35,15 @@ public class RdbmsHandlerTest {
     public static final RdbmsHandler RDBMS_HANDLER_EMPTY_MAPPING =
             new RdbmsHandler(new MongoDbSinkConnectorConfig(new HashMap<>()),
                     new HashMap<>());
+
+    public static final RdbmsHandler RDBMS_HANDLER_NOOP_MAPPING =
+            new RdbmsHandler(new MongoDbSinkConnectorConfig(new HashMap<>()),
+                    new HashMap<OperationType,CdcOperation>() {{
+                        put(OperationType.CREATE,new RdbmsNoOp());
+                        put(OperationType.READ,new RdbmsNoOp());
+                        put(OperationType.UPDATE,new RdbmsNoOp());
+                        put(OperationType.DELETE,new RdbmsNoOp());
+                    }});
 
     @Test
     @DisplayName("verify existing default config from base class")
@@ -206,6 +216,75 @@ public class RdbmsHandlerTest {
                         assertTrue(RDBMS_HANDLER_DEFAULT_MAPPING.getCdcOperation(
                                 new BsonDocument("op", new BsonString("d")))
                                 instanceof RdbmsDelete)
+                )
+        );
+
+    }
+
+    @TestFactory
+    @DisplayName("when valid cdc operation type mapped to NO OP then CdcOperation of type RdbmsNoOp")
+    public Stream<DynamicTest> testValidCdcOpertionWithNoOpMappings() {
+
+        return Stream.of(OperationType.values()).map(ot ->
+                dynamicTest("test operation " + ot, () ->
+                        assertTrue(RDBMS_HANDLER_NOOP_MAPPING.getCdcOperation(
+                                new BsonDocument("op", new BsonString("c")))
+                                instanceof RdbmsNoOp)
+                )
+        );
+
+    }
+
+    @TestFactory
+    @DisplayName("when valid CDC event with noop mapping then empty WriteModel")
+    public Stream<DynamicTest> testValidCdcDocumentWithNoOpMapping() {
+
+        return Stream.of(
+                dynamicTest("test operation "+OperationType.CREATE,
+                        () -> assertEquals(Optional.empty(),
+                                RDBMS_HANDLER_NOOP_MAPPING.handle(
+                                        new SinkDocument(
+                                                new BsonDocument("id",new BsonInt32(1004)),
+                                                new BsonDocument("op",new BsonString("c"))
+                                                        .append("after",new BsonDocument("id",new BsonInt32(1004))
+                                                                .append("foo",new BsonString("blah")))
+                                        )
+                                ),
+                                () -> "result of RdbmsNoOp must be Optional.empty()")
+                ),
+                dynamicTest("test operation "+OperationType.READ,
+                        () -> assertEquals(Optional.empty(),
+                                RDBMS_HANDLER_NOOP_MAPPING.handle(
+                                        new SinkDocument(
+                                                new BsonDocument("id",new BsonInt32(1004)),
+                                                new BsonDocument("op",new BsonString("r"))
+                                                        .append("after",new BsonDocument("id",new BsonInt32(1004))
+                                                                .append("foo",new BsonString("blah")))
+                                        )
+                                ),
+                                () -> "result of RdbmsNoOp must be Optional.empty()")
+                ),
+                dynamicTest("test operation "+OperationType.UPDATE,
+                        () -> assertEquals(Optional.empty(),
+                                RDBMS_HANDLER_NOOP_MAPPING.handle(
+                                        new SinkDocument(
+                                                new BsonDocument("id",new BsonInt32(1004)),
+                                                new BsonDocument("op",new BsonString("u"))
+                                                        .append("after",new BsonDocument("id",new BsonInt32(1004))
+                                                                .append("foo",new BsonString("blah")))
+                                        )
+                                ),
+                                () -> "result of RdbmsNoOp must be Optional.empty()")
+                ),
+                dynamicTest("test operation "+OperationType.DELETE,
+                        () -> assertEquals(Optional.empty(),
+                                RDBMS_HANDLER_NOOP_MAPPING.handle(
+                                        new SinkDocument(
+                                                new BsonDocument("id",new BsonInt32(1004)),
+                                                new BsonDocument("op",new BsonString("d"))
+                                        )
+                                ),
+                                () -> "result of RdbmsNoOp must be Optional.empty()")
                 )
         );
 

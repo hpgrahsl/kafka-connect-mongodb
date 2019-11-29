@@ -17,8 +17,10 @@
 package at.grahsl.kafka.connect.mongodb;
 
 import at.grahsl.kafka.connect.mongodb.cdc.CdcHandler;
-import at.grahsl.kafka.connect.mongodb.cdc.debezium.mongodb.MongoDbHandler;
-import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.RdbmsHandler;
+import at.grahsl.kafka.connect.mongodb.cdc.CdcOperation;
+import at.grahsl.kafka.connect.mongodb.cdc.debezium.OperationType;
+import at.grahsl.kafka.connect.mongodb.cdc.debezium.mongodb.*;
+import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.*;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.mysql.MysqlHandler;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.postgres.PostgresHandler;
 import at.grahsl.kafka.connect.mongodb.processor.*;
@@ -40,6 +42,7 @@ import org.apache.kafka.common.config.ConfigValue;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -78,6 +81,7 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
     public static final String MONGODB_FIELD_RENAMER_REGEXP_DEFAULT = "[]";
     public static final String MONGODB_POST_PROCESSOR_CHAIN_DEFAULT = "at.grahsl.kafka.connect.mongodb.processor.DocumentIdAdder";
     public static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DEFAULT = "";
+    public static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS_DEFAULT = "c,r,u,d";
     public static final boolean MONGODB_DELETE_ON_NULL_VALUES_DEFAULT = false;
     public static final String MONGODB_WRITEMODEL_STRATEGY_DEFAULT = "at.grahsl.kafka.connect.mongodb.writemodel.strategy.ReplaceOneDefaultStrategy";
     public static final int MONGODB_MAX_BATCH_SIZE_DEFAULT = 0;
@@ -128,6 +132,9 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
 
     public static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER = "mongodb.change.data.capture.handler";
     private static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DOC = "class name of CDC handler to use for processing";
+
+    public static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS = "mongodb.change.data.capture.handler.operations";
+    private static final String MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS_DOC = "comma separated list of supported CDC operation types (missing ones result in no ops)";
 
     public static final String MONGODB_DELETE_ON_NULL_VALUES = "mongodb.delete.on.null.values";
     private static final String MONGODB_DELETE_ON_NULL_VALUES_DOC = "whether or not the connector tries to delete documents based on key when value is null";
@@ -257,6 +264,7 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
                 .define(MONGODB_FIELD_RENAMER_REGEXP, Type.STRING, MONGODB_FIELD_RENAMER_REGEXP_DEFAULT, Importance.LOW, MONGODB_FIELD_RENAMER_REGEXP_DOC)
                 .define(MONGODB_POST_PROCESSOR_CHAIN, Type.STRING, MONGODB_POST_PROCESSOR_CHAIN_DEFAULT, emptyString().or(matching(FULLY_QUALIFIED_CLASS_NAME_LIST)), Importance.LOW, MONGODB_POST_PROCESSOR_CHAIN_DOC)
                 .define(MONGODB_CHANGE_DATA_CAPTURE_HANDLER, Type.STRING, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DEFAULT, emptyString().or(matching(FULLY_QUALIFIED_CLASS_NAME)), Importance.LOW, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_DOC)
+                .define(MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS, Type.STRING, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS_DEFAULT, Importance.LOW, MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS_DOC)
                 .define(MONGODB_DELETE_ON_NULL_VALUES, Type.BOOLEAN, MONGODB_DELETE_ON_NULL_VALUES_DEFAULT, Importance.MEDIUM, MONGODB_DELETE_ON_NULL_VALUES_DOC)
                 .define(MONGODB_WRITEMODEL_STRATEGY, Type.STRING, MONGODB_WRITEMODEL_STRATEGY_DEFAULT, Importance.LOW, MONGODB_WRITEMODEL_STRATEGY_DOC)
                 .define(MONGODB_MAX_BATCH_SIZE, Type.INT, MONGODB_MAX_BATCH_SIZE_DEFAULT, ConfigDef.Range.atLeast(0), Importance.MEDIUM, MONGODB_MAX_BATCH_SIZE_DOC)
@@ -636,10 +644,14 @@ public class MongoDbSinkConnectorConfig extends CollectionAwareConfig {
             throw new ConfigException("error: unknown cdc handler "+cdcHandler);
         }
 
+        List<OperationType> supportedOperations = new HashSet<>(
+                splitAndTrimAndRemoveConfigListEntries(getString(MONGODB_CHANGE_DATA_CAPTURE_HANDLER_OPERATIONS,collection))
+        ).stream().map(OperationType::fromText).collect(Collectors.toList());
+
         try {
-            return (CdcHandler) Class.forName(cdcHandler)
-                    .getConstructor(MongoDbSinkConnectorConfig.class)
-                    .newInstance(this);
+            Class<CdcHandler> cdcHandlerClass = (Class<CdcHandler>)Class.forName(cdcHandler);
+            return cdcHandlerClass.getConstructor(MongoDbSinkConnectorConfig.class,List.class)
+                    .newInstance(this,supportedOperations);
         } catch (ReflectiveOperationException e) {
             throw new ConfigException(e.getMessage(),e);
         } catch (ClassCastException e) {

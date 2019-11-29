@@ -28,8 +28,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 public class MongoDbHandler extends DebeziumCdcHandler {
 
@@ -53,6 +55,27 @@ public class MongoDbHandler extends DebeziumCdcHandler {
         registerOperations(operations);
     }
 
+    public MongoDbHandler(MongoDbSinkConnectorConfig config, List<OperationType> supportedTypes) {
+        super(config);
+        final Map<OperationType,CdcOperation> operations = new HashMap<>();
+        Stream.of(OperationType.values()).forEach(ot -> operations.put(ot, new MongoDbNoOp()));
+        supportedTypes.forEach(ot -> {
+            switch (ot) {
+                case CREATE:
+                case READ:
+                    operations.put(ot,new MongoDbInsert());
+                    break;
+                case UPDATE:
+                    operations.put(ot,new MongoDbUpdate());
+                    break;
+                case DELETE:
+                    operations.put(ot,new MongoDbDelete());
+                    break;
+            }
+        });
+        registerOperations(operations);
+    }
+
     @Override
     public Optional<WriteModel<BsonDocument>> handle(SinkDocument doc) {
 
@@ -72,7 +95,7 @@ public class MongoDbHandler extends DebeziumCdcHandler {
         logger.debug("key: "+keyDoc.toString());
         logger.debug("value: "+valueDoc.toString());
 
-        return Optional.of(getCdcOperation(valueDoc).perform(doc));
+        return Optional.ofNullable(getCdcOperation(valueDoc).perform(doc));
     }
 
 }

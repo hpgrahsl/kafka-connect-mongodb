@@ -1,7 +1,9 @@
 package at.grahsl.kafka.connect.mongodb.cdc.debezium.mongodb;
 
 import at.grahsl.kafka.connect.mongodb.MongoDbSinkConnectorConfig;
+import at.grahsl.kafka.connect.mongodb.cdc.CdcOperation;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.OperationType;
+import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.RdbmsHandler;
 import at.grahsl.kafka.connect.mongodb.converter.SinkDocument;
 import com.mongodb.client.model.DeleteOneModel;
 import com.mongodb.client.model.ReplaceOneModel;
@@ -35,6 +37,15 @@ public class MongoDbHandlerTest {
     public static final MongoDbHandler MONGODB_HANDLER_EMPTY_MAPPING =
             new MongoDbHandler(new MongoDbSinkConnectorConfig(new HashMap<>()),
                     new HashMap<>());
+
+    public static final RdbmsHandler MONGODB_HANDLER_NOOP_MAPPING =
+            new RdbmsHandler(new MongoDbSinkConnectorConfig(new HashMap<>()),
+                    new HashMap<OperationType, CdcOperation>() {{
+                        put(OperationType.CREATE,new MongoDbNoOp());
+                        put(OperationType.READ,new MongoDbNoOp());
+                        put(OperationType.UPDATE,new MongoDbNoOp());
+                        put(OperationType.DELETE,new MongoDbNoOp());
+                    }});
 
     @Test
     @DisplayName("verify existing default config from base class")
@@ -204,6 +215,76 @@ public class MongoDbHandlerTest {
                         assertTrue(MONGODB_HANDLER_DEFAULT_MAPPING.getCdcOperation(
                                 new BsonDocument("op",new BsonString("d")))
                                 instanceof MongoDbDelete)
+                )
+        );
+
+    }
+
+    @TestFactory
+    @DisplayName("when valid cdc operation type mapped to NO OP then CdcOperation of type MongoDbNoOp")
+    public Stream<DynamicTest> testValidCdcOpertionWithNoOpMappings() {
+
+        return Stream.of(OperationType.values()).map(ot ->
+                dynamicTest("test operation " + ot, () ->
+                        assertTrue(MONGODB_HANDLER_NOOP_MAPPING.getCdcOperation(
+                                new BsonDocument("op", new BsonString("c")))
+                                instanceof MongoDbNoOp)
+                )
+        );
+
+    }
+
+    @TestFactory
+    @DisplayName("when valid CDC event with noop mapping then empty WriteModel")
+    public Stream<DynamicTest> testValidCdcDocumentWithNoOpMapping() {
+
+        return Stream.of(
+                dynamicTest("test operation "+OperationType.CREATE,
+                        () -> assertEquals(Optional.empty(),
+                                MONGODB_HANDLER_NOOP_MAPPING.handle(
+                                        new SinkDocument(
+                                                new BsonDocument("_id",new BsonString("1234")),
+                                                new BsonDocument("op",new BsonString("c"))
+                                                        .append("after",new BsonString("{_id:1234,foo:\"blah\"}"))
+                                        )
+                                ),
+                                () -> "result of MongoDbNoOp must be Optional.empty()")
+
+                ),
+                dynamicTest("test operation "+OperationType.READ,
+                        () -> assertEquals(Optional.empty(),
+                                MONGODB_HANDLER_NOOP_MAPPING.handle(
+                                        new SinkDocument(
+                                                new BsonDocument("_id",new BsonString("1234")),
+                                                new BsonDocument("op",new BsonString("r"))
+                                                        .append("after",new BsonString("{_id:1234,foo:\"blah\"}"))
+                                        )
+                                ),
+                                () -> "result of MongoDbNoOp must be Optional.empty()")
+
+                ),
+                dynamicTest("test operation "+OperationType.UPDATE,
+                        () -> assertEquals(Optional.empty(),
+                                MONGODB_HANDLER_NOOP_MAPPING.handle(
+                                        new SinkDocument(
+                                                new BsonDocument("id",new BsonString("1234")),
+                                                new BsonDocument("op",new BsonString("u"))
+                                                        .append("patch",new BsonString("{\"$set\":{foo:\"blah\"}}"))
+                                        )
+                                ),
+                                () -> "result of MongoDbNoOp must be Optional.empty()")
+
+                ),
+                dynamicTest("test operation "+OperationType.DELETE,
+                        () -> assertEquals(Optional.empty(),
+                                MONGODB_HANDLER_NOOP_MAPPING.handle(
+                                        new SinkDocument(
+                                                new BsonDocument("id",new BsonString("1234")),
+                                                new BsonDocument("op",new BsonString("d"))
+                                        )
+                                ),
+                                () -> "result of MongoDbNoOp must be Optional.empty()")
+
                 )
         );
 

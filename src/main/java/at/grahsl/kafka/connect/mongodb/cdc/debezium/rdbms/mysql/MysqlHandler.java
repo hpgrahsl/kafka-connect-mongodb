@@ -21,6 +21,7 @@ import at.grahsl.kafka.connect.mongodb.cdc.CdcOperation;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.OperationType;
 import at.grahsl.kafka.connect.mongodb.cdc.debezium.rdbms.RdbmsHandler;
 
+import java.util.List;
 import java.util.Map;
 
 public class MysqlHandler extends RdbmsHandler {
@@ -37,4 +38,9 @@ public class MysqlHandler extends RdbmsHandler {
     public MysqlHandler(MongoDbSinkConnectorConfig config, Map<OperationType, CdcOperation> operations) {
         super(config, operations);
     }
+
+    public MysqlHandler(MongoDbSinkConnectorConfig config, List<OperationType> supportedTypes) {
+        super(config, supportedTypes);
+    }
+
 }
