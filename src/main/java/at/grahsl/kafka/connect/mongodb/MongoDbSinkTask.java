@@ -30,6 +30,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.BulkWriteOptions;
 import com.mongodb.client.model.WriteModel;
+import com.mongodb.DuplicateKeyException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -149,6 +150,9 @@ public class MongoDbSinkTask extends SinkTask {
                         docsToWrite, BULK_WRITE_OPTIONS);
                 LOGGER.debug("mongodb bulk write result: " + result.toString());
             }
+        } catch (DuplicateKeyException mexc) {
+            LOGGER.warn("duplicated kex exception", mexc);
+            LOGGER.warn(mexc.getMessage());
         } catch (MongoException mexc) {
             if (mexc instanceof BulkWriteException) {
                 BulkWriteException bwe = (BulkWriteException) mexc;
